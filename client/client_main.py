@@ -53,8 +53,10 @@ from shared.protocol import (
     DISCOVERY_PORT, DISCOVERY_MAGIC, DISCOVERY_RESPONSE_MAGIC,
     create_discovery_packet, parse_discovery_response
 )
+from shared.compression import compress_data, decompress_data, CompressionOptimizer
 from file_monitor import FileMonitorService, FileHasher
 from registry_manager import RegistryManager
+from connection_pool import ConnectionPool, ParallelFileTransfer
 
 # psutil可选
 try:
@@ -64,7 +66,7 @@ except ImportError:
     HAS_PSUTIL = False
 
 CLIENT_VERSION = '1.0.0'
-DEFAULT_CHUNK_SIZE = 256 * 1024  # 256KB - 大块减少协议开销，提升吞吐
+DEFAULT_CHUNK_SIZE = 1024 * 1024  # 1MB - 增大块大小减少协议开销，提升吞吐
 
 
 class BackupClientConfig:
@@ -212,10 +214,15 @@ class BackupClient:
         self.client_id = config.get('client', 'client_id')
         self.computer_name = config.get('client', 'computer_name') or socket.gethostname()
 
-        # 网络连接
+        # 网络连接 - 主连接
         self.socket: Optional[socket.socket] = None
         self.is_connected = False
         self._send_lock = threading.Lock()
+        
+        # 连接池 - 用于并行传输
+        self.connection_pool: Optional[ConnectionPool] = None
+        self.parallel_transfer: Optional[ParallelFileTransfer] = None
+        self._use_parallel = True  # 是否启用并行传输
 
         # 服务组件
         self.file_monitor: Optional[FileMonitorService] = None
@@ -241,12 +248,12 @@ class BackupClient:
         # OTA
         self.ota_buffer: Dict[str, Any] = {}
 
-        # 批量上传缓冲
+        # 批量上传缓冲 - 优化参数
         self._batch_buffer: List[Dict[str, Any]] = []
         self._batch_lock = threading.Lock()
         self._batch_timer: Optional[threading.Timer] = None
-        self._batch_max_size = 50            # 每批最多文件数
-        self._batch_timeout = 0.5           # 缓冲超时秒数(快速刷新)
+        self._batch_max_size = 200           # 每批最多文件数 - 增大以提高吞吐量
+        self._batch_timeout = 2.0            # 缓冲超时秒数 - 增加聚合时间
         self._pending_batches: Dict[str, Dict[str, Any]] = {}
 
         # 并发批量上传控制
@@ -383,14 +390,33 @@ class BackupClient:
             self.logger.info(f"正在连接服务端 {host}:{port}...")
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.settimeout(connect_timeout)
-            # 增大发送缓冲区以提升大块数据吞吐量
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 1024)  # 1MB
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)  # 1MB
+            # 增大发送缓冲区以提升大块数据吞吐量 (优化为8MB)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8 * 1024 * 1024)  # 8MB
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8 * 1024 * 1024)  # 8MB
             self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # 禁用Nagle算法
+            # 启用TCP快速重传（如果支持）
+            try:
+                self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+            except (AttributeError, OSError):
+                pass
             self.socket.connect((host, int(port)))
             # 连接成功后切换为阻塞模式（send/recv 超时由 select 控制，不用 settimeout）
             self.socket.settimeout(None)
             self.is_connected = True
+            
+            # 初始化连接池用于并行传输
+            if self._use_parallel:
+                max_conn = self.config.get('performance', 'max_parallel_connections') or 4
+                self.connection_pool = ConnectionPool(
+                    host, port, self.client_id, 
+                    max_connections=max_conn,
+                    logger=self.logger
+                )
+                self.parallel_transfer = ParallelFileTransfer(
+                    self.connection_pool, 
+                    chunk_size=DEFAULT_CHUNK_SIZE
+                )
+                self.logger.info(f"连接池已初始化 (最大连接数: {max_conn})")
             self.receive_buffer = bytearray()
             self.logger.info("已连接到服务端")
             self._send_register_message()
@@ -965,14 +991,8 @@ class BackupClient:
 
                     chunk_hash = hashlib.sha256(chunk_data).hexdigest()
 
-                    # 压缩(如果压缩后更小)
-                    is_compressed = False
-                    send_data = chunk_data
-                    if len(chunk_data) > 1024:
-                        compressed = zlib.compress(chunk_data)
-                        if len(compressed) < len(chunk_data):
-                            send_data = compressed
-                            is_compressed = True
+                    # 使用优化的压缩算法
+                    send_data, is_compressed, _ = compress_data(file_path, chunk_data)
 
                     msg = ProtocolHandler.create_file_chunk_message(
                         self.client_id, file_path, version,

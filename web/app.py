@@ -1787,6 +1787,10 @@ def api_generate_client():
                 'file_monitor.py',
                 'registry_manager.py',
                 'windows_service.py',
+                # 性能优化模块
+                'connection_pool.py',
+                'async_client.py',
+                'prefetcher.py',
             ]
 
             # 复制客户端文件
@@ -1863,6 +1867,14 @@ REM 安装依赖
 echo 正在安装依赖...
 pip install watchdog psutil -q
 
+REM 安装可选依赖（性能优化）
+echo 正在安装可选依赖（LZ4压缩、异步I/O）...
+pip install lz4 aiofiles -q 2>nul
+
+echo.
+echo [提示] 如需打包为EXE，请运行 build_exe.bat
+echo.
+
 REM 启动客户端
 echo 正在启动客户端...
 python client_main.py --service
@@ -1887,26 +1899,39 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM 安装PyInstaller
+REM 安装PyInstaller和依赖
 echo 正在安装打包工具...
 pip install pyinstaller watchdog psutil pywin32 -q
 
+REM 安装可选依赖（用于性能优化）
+echo 正在安装可选依赖...
+pip install lz4 aiofiles -q
+
 REM 打包为单文件EXE(隐藏窗口)
 echo 正在打包为EXE...
-python build_exe.py --onefile --hidden
+python build_exe_fixed.py --onefile --hidden
 
 echo.
 echo 打包完成！请查看 dist 目录下的 FileBackupClient.exe
 echo 将 FileBackupClient.exe 和 config.ini 复制到目标机器即可运行
+echo.
+echo 提示：如果打包失败，请尝试运行 build_exe_simple.py
 pause
 """
             with open(os.path.join(package_dir, 'build_exe.bat'), 'w', encoding='utf-8') as f:
                 f.write(build_bat_content)
 
-            # 复制build_exe.py打包脚本
-            build_script = Path(__file__).parent.parent / 'client' / 'build_exe.py'
-            if build_script.exists():
-                shutil.copy2(str(build_script), os.path.join(package_dir, 'build_exe.py'))
+            # 复制打包脚本
+            build_scripts = [
+                'build_exe.py',
+                'build_exe_fixed.py',
+                'build_exe_simple.py',
+                'BUILD_README.md',
+            ]
+            for script_name in build_scripts:
+                script_path = Path(__file__).parent.parent / 'client' / script_name
+                if script_path.exists():
+                    shutil.copy2(str(script_path), os.path.join(package_dir, script_name))
 
             # Linux启动脚本
             sh_content = f"""#!/bin/bash

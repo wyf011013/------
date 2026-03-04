@@ -67,10 +67,10 @@ except ImportError:
 # 常量定义
 # ============================================================
 DEFAULT_TCP_PORT = 8888                # TCP默认端口
-DEFAULT_CHUNK_SIZE = 64 * 1024         # 块大小 64KB
+DEFAULT_CHUNK_SIZE = 1024 * 1024       # 块大小 1MB - 优化传输效率
 CONNECTION_TIMEOUT = 300               # 连接超时 5分钟
-RECV_BUFFER_SIZE = 256 * 1024          # TCP接收缓冲区 256KB
-OTA_CHUNK_SIZE = 64 * 1024             # OTA分包大小 64KB
+RECV_BUFFER_SIZE = 1024 * 1024         # TCP接收缓冲区 1MB
+OTA_CHUNK_SIZE = 256 * 1024            # OTA分包大小 256KB
 SERVER_VERSION = '1.0.0'               # 服务端版本号
 
 

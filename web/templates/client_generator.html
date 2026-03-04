@@ -126,7 +126,13 @@
                     <li>运行: <code>bash install.sh</code></li>
                 </ol>
                 <hr>
-                <p class="text-muted small mb-0">系统要求: Python 3.8+, 依赖: watchdog, psutil</p>
+                <h6><strong>性能优化（可选）</strong></h6>
+                <ul class="pl-3 mb-2">
+                    <li>LZ4压缩 - 更快的压缩速度</li>
+                    <li>异步I/O - 提升传输性能</li>
+                    <li>连接池 - 并发多连接传输</li>
+                </ul>
+                <p class="text-muted small mb-0">系统要求: Python 3.8+, 必需: watchdog, psutil, 可选: lz4, aiofiles</p>
             </div>
         </div>
     </div>

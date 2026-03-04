@@ -106,6 +106,22 @@ def build_exe(onefile=True, hidden=False, clean=True, icon_path=None):
         'fnmatch',
         'logging',
         'logging.handlers',
+        # 客户端本地模块
+        'connection_pool',
+        'async_client',
+        'prefetcher',
+        'file_monitor',
+        'registry_manager',
+        'windows_service',
+        # shared模块
+        'shared.protocol',
+        'shared.compression',
+        'shared.performance_config',
+        # 性能优化可选依赖（如果已安装则打包进exe）
+        'lz4',
+        'lz4.frame',
+        'aiofiles',
+        'aiofiles.threadpool',
     ]
 
     # Windows特有依赖
@@ -135,6 +151,24 @@ def build_exe(onefile=True, hidden=False, clean=True, icon_path=None):
     # 路径搜索（确保能找到shared模块）
     cmd.extend(['--paths', str(project_root)])
     cmd.extend(['--paths', str(client_dir)])
+    
+    # 添加额外的hooks路径
+    hook_file = client_dir / 'hook-client.py'
+    if hook_file.exists():
+        cmd.extend(['--additional-hooks-dir', str(client_dir)])
+    
+    # 添加数据文件 - 使用正确的分隔符
+    sep = ';' if sys.platform == 'win32' else ':'
+    
+    # 添加 shared 目录
+    if shared_dir.exists():
+        cmd.extend(['--add-data', f'{shared_dir}{sep}shared'])
+    
+    # 添加客户端目录中的 .py 文件作为数据
+    # 这确保 connection_pool.py 等模块能被找到
+    for py_file in client_dir.glob('*.py'):
+        if py_file.name not in ['build_exe.py', 'build_exe_fixed.py', 'build_exe_simple.py']:
+            cmd.extend(['--add-data', f'{py_file}{sep}.'])
 
     # 输出目录
     cmd.extend(['--distpath', str(dist_dir)])
@@ -247,6 +281,40 @@ retries = 3
     print(f"  配置模板: {config_path}")
 
 
+def check_and_install_optional_deps():
+    """检查并安装可选依赖"""
+    optional_deps = {
+        'lz4': 'LZ4压缩算法（高性能压缩）',
+        'aiofiles': '异步文件操作（提升I/O性能）',
+    }
+    
+    print("\n[检查可选依赖]")
+    to_install = []
+    
+    for package, description in optional_deps.items():
+        try:
+            __import__(package)
+            print(f"  ✓ {package:15} - {description}")
+        except ImportError:
+            print(f"  ✗ {package:15} - {description} (未安装)")
+            to_install.append(package)
+    
+    if to_install:
+        print(f"\n[安装可选依赖] {', '.join(to_install)}")
+        try:
+            subprocess.check_call([
+                sys.executable, '-m', 'pip', 'install'
+            ] + to_install)
+            print("[OK] 可选依赖安装完成")
+        except subprocess.CalledProcessError as e:
+            print(f"[警告] 可选依赖安装失败: {e}")
+            print("  继续打包，exe将使用标准库功能")
+    else:
+        print("[OK] 所有可选依赖已安装")
+    
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(description='文件备份客户端 EXE打包工具')
     parser.add_argument('--onefile', action='store_true', default=True,
@@ -259,6 +327,10 @@ def main():
                         help='不清理旧的构建文件')
     parser.add_argument('--icon', type=str, default=None,
                         help='自定义图标路径 (.ico)')
+    parser.add_argument('--with-optional-deps', action='store_true', default=True,
+                        help='自动安装并打包可选依赖 (默认开启)')
+    parser.add_argument('--without-optional-deps', action='store_true',
+                        help='不安装可选依赖，仅使用标准库')
 
     args = parser.parse_args()
 
@@ -270,6 +342,10 @@ def main():
         print("[错误] PyInstaller未安装，正在自动安装...")
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pyinstaller'])
         print("[OK] PyInstaller安装完成")
+
+    # 检查并安装可选依赖
+    if args.with_optional_deps and not args.without_optional_deps:
+        check_and_install_optional_deps()
 
     onefile = not args.onedir
     build_exe(

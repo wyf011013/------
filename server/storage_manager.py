@@ -18,6 +18,14 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 
+# 导入优化模块
+try:
+    from cache_manager import CacheManager, BlockCache
+    from batch_operations import DataBlocksBatchManager
+    HAS_OPTIMIZATIONS = True
+except ImportError:
+    HAS_OPTIMIZATIONS = False
+
 
 class StorageManager:
     """
