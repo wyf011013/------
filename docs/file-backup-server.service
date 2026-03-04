@@ -1,0 +1,19 @@
+[Unit]
+Description=File Backup Server
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=backup
+WorkingDirectory=/opt/file_backup_system/server
+ExecStart=/usr/bin/python3 /opt/file_backup_system/server/server_main.py --config /etc/file_backup/server_config.json
+Restart=always
+RestartSec=10
+Environment=PYTHONPATH=/opt/file_backup_system
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=file-backup-server
+
+[Install]
+WantedBy=multi-user.target

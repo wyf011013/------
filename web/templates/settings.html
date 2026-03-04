@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}系统设置 - 文件备份系统{% endblock %}
+{% block page_title %}系统设置{% endblock %}
+{% block breadcrumb %}系统设置{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card card-outline card-primary">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-server mr-1"></i> 服务器配置</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>TCP监听端口</label>
+                    <input type="number" class="form-control" value="{{ config.get('server', {}).get('port', 8888) }}" disabled>
+                    <small class="text-muted">修改需重启服务</small>
+                </div>
+                <div class="form-group">
+                    <label>UDP发现端口</label>
+                    <input type="number" class="form-control" value="8889" disabled>
+                </div>
+                <div class="form-group">
+                    <label>最大连接数</label>
+                    <input type="number" class="form-control" value="{{ config.get('server', {}).get('max_connections', 100) }}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>心跳超时(秒)</label>
+                    <input type="number" class="form-control" value="{{ config.get('server', {}).get('heartbeat_interval', 300) }}" disabled>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-outline card-success">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-hdd mr-1"></i> 存储配置</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>存储根路径</label>
+                    <input type="text" class="form-control" value="{{ config.get('storage', {}).get('root_path', './backup_storage') }}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>块大小</label>
+                    <input type="text" class="form-control" value="64 KB" disabled>
+                </div>
+                <div class="form-group">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="cfg-dedup" checked disabled>
+                        <label class="custom-control-label" for="cfg-dedup">启用数据去重</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input" id="cfg-compress" checked disabled>
+                        <label class="custom-control-label" for="cfg-compress">启用压缩存储</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-6">
+        <div class="card card-outline card-info">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-database mr-1"></i> 数据库配置</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>数据库主机</label>
+                    <input type="text" class="form-control" value="{{ config.get('database', {}).get('host', 'localhost') }}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>数据库名称</label>
+                    <input type="text" class="form-control" value="{{ config.get('database', {}).get('database', 'file_backup_system') }}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>连接池大小</label>
+                    <input type="number" class="form-control" value="{{ config.get('database', {}).get('pool_size', 10) }}" disabled>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-outline card-warning">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-tachometer-alt mr-1"></i> 默认备份参数</h3>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>默认最大文件大小(MB)</label>
+                    <input type="number" class="form-control" value="{{ config.get('backup_defaults', {}).get('max_file_size_mb', 100) }}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>默认保留版本数</label>
+                    <input type="number" class="form-control" value="{{ config.get('storage', {}).get('keep_versions', 10) }}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>清理间隔(秒)</label>
+                    <input type="number" class="form-control" value="{{ config.get('storage', {}).get('cleanup_interval', 86400) }}" disabled>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="callout callout-info">
+    <h5><i class="fas fa-info-circle mr-1"></i> 提示</h5>
+    <p>服务器配置修改需编辑 <code>server_config.json</code> 文件并重启服务。当前页面仅展示运行时配置。</p>
+</div>
+{% endblock %}

@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}{{ client.computer_name }} - 文件备份系统{% endblock %}
+{% block page_title %}{{ client.computer_name }}{% endblock %}
+{% block breadcrumb %}客户端详情{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <!-- 客户端信息卡片 -->
+        <div class="card card-primary">
+            <div class="card-header">
+                <h3 class="card-title">客户端信息</h3>
+            </div>
+            <div class="card-body">
+                <strong><i class="fas fa-book mr-1"></i> 计算机名</strong>
+                <p class="text-muted">{{ client.computer_name }}</p>
+                <hr>
+
+                <strong><i class="fas fa-id-card mr-1"></i> 客户端ID</strong>
+                <p class="text-muted">{{ client.client_id }}</p>
+                <hr>
+
+                <strong><i class="fas fa-map-marker-alt mr-1"></i> IP地址</strong>
+                <p class="text-muted">{{ client.ip_address or '-' }}</p>
+                <hr>
+
+                <strong><i class="fas fa-circle mr-1"></i> 状态</strong>
+                <p class="text-muted">
+                    <span class="badge badge-{{ client.status|status_badge }}">
+                        {% if client.status == 'online' %}在线{% else %}离线{% endif %}
+                    </span>
+                </p>
+                <hr>
+
+                <strong><i class="fas fa-clock mr-1"></i> 最后在线</strong>
+                <p class="text-muted">{{ client.last_seen|datetime_format if client.last_seen else '从未' }}</p>
+                <hr>
+
+                <strong><i class="fas fa-calendar-alt mr-1"></i> 创建时间</strong>
+                <p class="text-muted">{{ client.created_at|datetime_format }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <!-- 备份统计 -->
+        <div class="row">
+            <div class="col-lg-4 col-6">
+                <div class="small-box bg-info">
+                    <div class="inner">
+                        <h3>{{ stats.unique_files }}</h3>
+                        <p>唯一文件数</p>
+                    </div>
+                    <div class="icon">
+                        <i class="fas fa-file"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-6">
+                <div class="small-box bg-success">
+                    <div class="inner">
+                        <h3>{{ stats.total_versions }}</h3>
+                        <p>总版本数</p>
+                    </div>
+                    <div class="icon">
+                        <i class="fas fa-history"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-6">
+                <div class="small-box bg-warning">
+                    <div class="inner">
+                        <h3>{{ stats.total_size|file_size_format }}</h3>
+                        <p>总存储量</p>
+                    </div>
+                    <div class="icon">
+                        <i class="fas fa-hdd"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 备份配置 -->
+        <div class="card card-info">
+            <div class="card-header">
+                <h3 class="card-title">备份配置</h3>
+            </div>
+            <form action="{{ url_for('set_client_config', client_id=client.id) if 'set_client_config' in url_for.__globals__['current_app'].view_functions else '#' }}" method="post">
+                <div class="card-body">
+                    <div class="form-group">
+                        <label for="backup_path">备份路径</label>
+                        <input type="text" class="form-control" id="backup_path" name="backup_path"
+                               value="{{ config.backup_path if config else '' }}" placeholder="在Web端客户端管理中选择路径">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="file_pattern">文件匹配模式</label>
+                        <input type="text" class="form-control" id="file_pattern" name="file_pattern"
+                               value="{{ config.file_pattern if config else '*' }}" placeholder="例如: *.txt, *.docx">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="exclude_patterns">排除模式（每行一个）</label>
+                        <textarea class="form-control" id="exclude_patterns" name="exclude_patterns"
+                                  rows="4" placeholder="例如：&#10;*.tmp&#10;*.log&#10;*.cache">{% if config %}{% for pattern in config.exclude_patterns %}{{ pattern }}&#10;{% endfor %}{% else %}*.tmp&#10;*.log&#10;*.cache{% endif %}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="max_file_size_mb">最大文件大小 (MB)</label>
+                        <input type="number" class="form-control" id="max_file_size_mb" name="max_file_size_mb"
+                               value="{{ config.max_file_size_mb if config else 100 }}" min="1" max="10240">
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary">保存配置</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 文件版本列表 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">备份文件列表</h3>
+            </div>
+            <div class="card-body">
+                {% if file_versions %}
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>文件路径</th>
+                            <th>版本</th>
+                            <th>大小</th>
+                            <th>备份时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for version in file_versions %}
+                        <tr>
+                            <td>{{ version.file_path }}</td>
+                            <td>v{{ version.version_number }}</td>
+                            <td>{{ version.file_size|file_size_format }}</td>
+                            <td>{{ version.backup_date|datetime_format }}</td>
+                            <td>
+                                <a href="/api/files/{{ client.id }}/download?path={{ version.file_path|urlencode }}&version={{ version.version_number }}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-download"></i> 恢复
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">暂无备份文件</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 客户端日志 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card card-outline card-dark">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-file-alt mr-1"></i> 客户端日志</h3>
+                <div class="card-tools">
+                    <div class="btn-group btn-group-sm mr-2">
+                        <button class="btn btn-default log-source-btn active" data-source="server">服务端日志</button>
+                        <button class="btn btn-default log-source-btn" data-source="client">客户端日志</button>
+                    </div>
+                    <button class="btn btn-sm btn-info" id="btn-refresh-logs">
+                        <i class="fas fa-sync-alt mr-1"></i> 刷新
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="log-loading" class="text-center py-3" style="display:none;">
+                    <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                    <p class="text-muted mt-2">正在加载日志...</p>
+                </div>
+                <!-- 服务端日志表格 -->
+                <div id="server-logs-container">
+                    <table class="table table-sm table-striped mb-0" id="server-logs-table">
+                        <thead>
+                            <tr>
+                                <th style="width:160px">时间</th>
+                                <th style="width:70px">级别</th>
+                                <th>消息</th>
+                            </tr>
+                        </thead>
+                        <tbody id="server-logs-body">
+                        </tbody>
+                    </table>
+                </div>
+                <!-- 客户端日志文本 -->
+                <div id="client-logs-container" style="display:none;">
+                    <pre id="client-log-text" style="max-height:500px;overflow-y:auto;padding:10px;margin:0;font-size:12px;background:#1e1e1e;color:#d4d4d4;"></pre>
+                </div>
+                <div id="log-empty" class="text-center py-4" style="display:none;">
+                    <i class="fas fa-inbox fa-2x text-muted"></i>
+                    <p class="text-muted mt-2">暂无日志记录</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var clientDbId = {{ client.id }};
+var currentLogSource = 'server';
+
+// 切换日志源
+$('.log-source-btn').click(function() {
+    $('.log-source-btn').removeClass('active');
+    $(this).addClass('active');
+    currentLogSource = $(this).data('source');
+    loadLogs();
+});
+
+$('#btn-refresh-logs').click(function() {
+    loadLogs();
+});
+
+function loadLogs() {
+    var source = currentLogSource;
+    $('#log-loading').show();
+    $('#server-logs-container').hide();
+    $('#client-logs-container').hide();
+    $('#log-empty').hide();
+
+    $.getJSON('/api/client/' + clientDbId + '/logs?source=' + source + '&limit=200', function(res) {
+        $('#log-loading').hide();
+
+        if (!res.success) {
+            $('#log-empty').show().find('p').text(res.message || '加载失败');
+            return;
+        }
+
+        if (source === 'server') {
+            var logs = res.data;
+            if (!logs || logs.length === 0) {
+                $('#log-empty').show();
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < logs.length; i++) {
+                var log = logs[i];
+                var levelBadge = 'secondary';
+                if (log.level === 'info') levelBadge = 'info';
+                else if (log.level === 'warning') levelBadge = 'warning';
+                else if (log.level === 'error') levelBadge = 'danger';
+
+                var timeStr = log.created_at ? log.created_at.replace('T', ' ').substring(0, 19) : '-';
+                html += '<tr>' +
+                    '<td><small>' + timeStr + '</small></td>' +
+                    '<td><span class="badge badge-' + levelBadge + '">' + (log.level || '-') + '</span></td>' +
+                    '<td><small>' + (log.message || '') + '</small></td>' +
+                    '</tr>';
+            }
+            $('#server-logs-body').html(html);
+            $('#server-logs-container').show();
+        } else {
+            var logText = res.data;
+            if (!logText) {
+                $('#log-empty').show();
+                return;
+            }
+            // 对文本进行HTML转义
+            var escaped = $('<div>').text(logText).html();
+            $('#client-log-text').html(escaped);
+            $('#client-logs-container').show();
+            // 自动滚动到底部
+            var pre = document.getElementById('client-log-text');
+            pre.scrollTop = pre.scrollHeight;
+        }
+    }).fail(function(xhr) {
+        $('#log-loading').hide();
+        var msg = '加载日志失败';
+        try {
+            var resp = JSON.parse(xhr.responseText);
+            msg = resp.message || msg;
+        } catch(e) {}
+        $('#log-empty').show().find('p').text(msg);
+    });
+}
+
+// 页面加载时自动加载日志
+$(function() {
+    loadLogs();
+});
+</script>
+{% endblock %}

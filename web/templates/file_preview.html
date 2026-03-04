@@ -1,0 +1,700 @@
+{% extends "base.html" %}
+
+{% block title %}文件预览 - 文件备份系统{% endblock %}
+{% block page_title %}文件预览{% endblock %}
+{% block breadcrumb %}<a href="{{ url_for('files') }}">文件管理</a> / 文件预览{% endblock %}
+
+{% block extra_css %}
+<style>
+.preview-container {
+    background: #f8f9fa;
+    min-height: calc(100vh - 200px);
+    padding: 20px;
+}
+.preview-wrapper {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+.preview-header {
+    padding: 15px 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.preview-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+.preview-meta {
+    font-size: 12px;
+    color: #6c757d;
+}
+.preview-content {
+    min-height: 500px;
+    max-height: calc(100vh - 250px);
+    overflow: auto;
+    padding: 20px;
+}
+
+/* 文档预览样式 */
+.docx-preview {
+    padding: 40px;
+    background: #fff;
+}
+.docx-preview .document {
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+/* Excel预览样式 */
+.xlsx-preview {
+    padding: 20px;
+}
+.xlsx-preview .handsontable {
+    font-size: 13px;
+}
+
+/* PPT预览样式 */
+.pptx-preview {
+    padding: 20px;
+    text-align: center;
+}
+.pptx-slide {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.pptx-slide-number {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 10px;
+}
+
+/* PDF预览样式 */
+.pdf-preview {
+    width: 100%;
+    height: calc(100vh - 250px);
+    border: none;
+}
+
+/* 图片预览样式 */
+.image-preview {
+    text-align: center;
+    padding: 20px;
+}
+.image-preview img {
+    max-width: 100%;
+    max-height: calc(100vh - 300px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* 视频预览样式 */
+.video-preview {
+    text-align: center;
+    padding: 20px;
+}
+.video-preview video {
+    max-width: 100%;
+    max-height: calc(100vh - 300px);
+}
+
+/* 音频预览样式 */
+.audio-preview {
+    text-align: center;
+    padding: 40px 20px;
+}
+.audio-preview audio {
+    width: 100%;
+    max-width: 600px;
+}
+
+/* 代码预览样式 */
+.code-preview {
+    padding: 0;
+}
+.code-preview pre {
+    margin: 0;
+    padding: 20px;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+}
+.code-preview code {
+    font-family: inherit;
+}
+
+/* 文本预览样式 */
+.text-preview {
+    padding: 20px;
+    background: #fff;
+}
+.text-preview pre {
+    margin: 0;
+    padding: 20px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: calc(100vh - 300px);
+    overflow: auto;
+}
+
+/* 压缩包预览样式 */
+.zip-preview {
+    padding: 20px;
+}
+.zip-file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.zip-file-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.zip-file-item:hover {
+    background: #f8f9fa;
+}
+.zip-file-item i {
+    color: #6c757d;
+}
+.zip-file-item .file-name {
+    flex: 1;
+}
+.zip-file-item .file-size {
+    color: #999;
+    font-size: 12px;
+}
+
+/* 加载状态 */
+.preview-loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+.preview-loading i {
+    font-size: 48px;
+    margin-bottom: 20px;
+    display: block;
+}
+
+/* 错误状态 */
+.preview-error {
+    text-align: center;
+    padding: 60px 20px;
+    color: #dc3545;
+}
+.preview-error i {
+    font-size: 48px;
+    margin-bottom: 20px;
+    display: block;
+}
+
+/* 不支持预览 */
+.preview-unsupported {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+.preview-unsupported i {
+    font-size: 64px;
+    margin-bottom: 20px;
+    display: block;
+    color: #adb5bd;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preview-container">
+    <div class="preview-wrapper">
+        <div class="preview-header">
+            <div>
+                <h4 class="preview-title" id="preview-filename">加载中...</h4>
+                <div class="preview-meta" id="preview-meta"></div>
+            </div>
+            <div>
+                <a href="#" class="btn btn-sm btn-primary" id="btn-download">
+                    <i class="fas fa-download"></i> 下载文件
+                </a>
+                <a href="{{ url_for('files') }}" class="btn btn-sm btn-secondary">
+                    <i class="fas fa-arrow-left"></i> 返回
+                </a>
+            </div>
+        </div>
+        <div class="preview-content" id="preview-content">
+            <div class="preview-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>正在加载文件...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 文档预览库 -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.2/dist/docx-preview.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/handsontable@12.4.0/dist/handsontable.full.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@12.4.0/dist/handsontable.full.min.css">
+<script src="https://cdn.jsdelivr.net/npm/pptx-parser@1.1.0/dist/pptx-parser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+
+<script>
+(function() {
+'use strict';
+
+// 获取URL参数
+function getUrlParam(name) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+}
+
+// 文件类型检测
+function getFileType(filename) {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    const typeMap = {
+        // Office文档
+        'docx': 'docx',
+        'xlsx': 'xlsx',
+        'xls': 'xlsx',
+        'pptx': 'pptx',
+        'ppt': 'pptx',
+        // PDF
+        'pdf': 'pdf',
+        // 图片
+        'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image',
+        'bmp': 'image', 'svg': 'image', 'ico': 'image', 'webp': 'image',
+        // 视频
+        'mp4': 'video', 'webm': 'video', 'ogg': 'video', 'mov': 'video',
+        'avi': 'video', 'mkv': 'video', 'flv': 'video',
+        // 音频
+        'mp3': 'audio', 'wav': 'audio', 'flac': 'audio', 'aac': 'audio',
+        'ogg': 'audio', 'wma': 'audio', 'm4a': 'audio',
+        // 代码文件
+        'js': 'code', 'ts': 'code', 'jsx': 'code', 'tsx': 'code',
+        'html': 'code', 'htm': 'code', 'css': 'code', 'scss': 'code', 'less': 'code',
+        'py': 'code', 'java': 'code', 'cpp': 'code', 'c': 'code', 'h': 'code',
+        'cs': 'code', 'go': 'code', 'rs': 'code', 'php': 'code', 'rb': 'code',
+        'swift': 'code', 'kt': 'code', 'scala': 'code', 'r': 'code',
+        'json': 'code', 'xml': 'code', 'yaml': 'code', 'yml': 'code',
+        'sql': 'code', 'sh': 'code', 'bash': 'code', 'ps1': 'code', 'bat': 'code',
+        // 文本文件
+        'txt': 'text', 'md': 'text', 'log': 'text', 'csv': 'text',
+        // 压缩包
+        'zip': 'zip', 'rar': 'zip', '7z': 'zip', 'gz': 'zip', 'tar': 'zip',
+    };
+    return typeMap[ext] || 'unknown';
+}
+
+// 获取代码语言
+function getCodeLanguage(filename) {
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    const langMap = {
+        'js': 'javascript', 'ts': 'typescript', 'jsx': 'javascript', 'tsx': 'typescript',
+        'html': 'xml', 'htm': 'xml', 'css': 'css', 'scss': 'scss', 'less': 'less',
+        'py': 'python', 'java': 'java', 'cpp': 'cpp', 'c': 'c', 'h': 'cpp',
+        'cs': 'csharp', 'go': 'go', 'rs': 'rust', 'php': 'php', 'rb': 'ruby',
+        'swift': 'swift', 'kt': 'kotlin', 'scala': 'scala', 'r': 'r',
+        'json': 'json', 'xml': 'xml', 'yaml': 'yaml', 'yml': 'yaml',
+        'sql': 'sql', 'sh': 'bash', 'bash': 'bash', 'ps1': 'powershell', 'bat': 'dos',
+        'md': 'markdown', 'csv': 'csv',
+    };
+    return langMap[ext] || 'plaintext';
+}
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 显示加载状态
+function showLoading() {
+    $('#preview-content').html('<div class="preview-loading"><i class="fas fa-spinner fa-spin"></i><p>正在加载文件...</p></div>');
+}
+
+// 显示错误
+function showError(message) {
+    $('#preview-content').html('<div class="preview-error"><i class="fas fa-exclamation-circle"></i><p>' + message + '</p></div>');
+}
+
+// 显示不支持
+function showUnsupported(fileType) {
+    $('#preview-content').html(
+        '<div class="preview-unsupported">' +
+        '<i class="fas fa-file"></i>' +
+        '<h5>暂不支持预览此类型文件</h5>' +
+        '<p>文件类型: ' + fileType + '</p>' +
+        '<p>请下载后使用相应软件打开</p>' +
+        '</div>'
+    );
+}
+
+// 预览DOCX文件
+function previewDocx(blob, container) {
+    container.innerHTML = '<div class="docx-preview"></div>';
+    const options = {
+        className: 'docx-preview',
+        inWrapper: true,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        ignoreFonts: false,
+        breakPages: true,
+        ignoreLastRenderedPageBreak: true,
+        trimXmlDeclaration: true,
+        useBase64URL: false,
+        renderChanges: false,
+        renderComments: false,
+    };
+    docx.renderAsync(blob, container.querySelector('.docx-preview'), null, options)
+        .then(() => console.log('DOCX rendered'))
+        .catch(err => {
+            console.error('DOCX render error:', err);
+            showError('文档渲染失败: ' + err.message);
+        });
+}
+
+// 预览XLSX文件
+function previewXlsx(blob, container, filename) {
+    container.innerHTML = '<div class="xlsx-preview"></div>';
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // 创建标签页容器
+            let html = '<ul class="nav nav-tabs" id="sheet-tabs" role="tablist">';
+            workbook.SheetNames.forEach((name, idx) => {
+                html += '<li class="nav-item">' +
+                    '<a class="nav-link ' + (idx === 0 ? 'active' : '') + '" id="tab-' + idx + '" data-toggle="tab" href="#sheet-' + idx + '" role="tab">' + name + '</a>' +
+                    '</li>';
+            });
+            html += '</ul>';
+            html += '<div class="tab-content pt-3" id="sheet-content">';
+            
+            workbook.SheetNames.forEach((name, idx) => {
+                const worksheet = workbook.Sheets[name];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                html += '<div class="tab-pane fade ' + (idx === 0 ? 'show active' : '') + '" id="sheet-' + idx + '" role="tabpanel">';
+                html += '<div id="hot-' + idx + '" style="width: 100%; height: 500px;"></div>';
+                html += '</div>';
+                
+                // 保存数据供后续渲染
+                setTimeout(() => {
+                    const container = document.getElementById('hot-' + idx);
+                    if (container && jsonData.length > 0) {
+                        new Handsontable(container, {
+                            data: jsonData,
+                            rowHeaders: true,
+                            colHeaders: true,
+                            height: 500,
+                            licenseKey: 'non-commercial-and-evaluation',
+                            readOnly: true,
+                        });
+                    }
+                }, 100);
+            });
+            html += '</div>';
+            
+            container.querySelector('.xlsx-preview').innerHTML = html;
+        } catch (err) {
+            console.error('XLSX parse error:', err);
+            showError('Excel文件解析失败: ' + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(blob);
+}
+
+// 预览PPTX文件
+function previewPptx(blob, container) {
+    container.innerHTML = '<div class="pptx-preview"><p>正在解析PPT...</p></div>';
+    
+    // 使用JSZip解压并解析PPTX
+    JSZip.loadAsync(blob).then(function(zip) {
+        // 读取演示文稿结构
+        const slidePromises = [];
+        let slideCount = 0;
+        
+        // 获取所有幻灯片
+        Object.keys(zip.files).forEach(filename => {
+            if (filename.match(/^ppt\/slides\/slide\d+\.xml$/)) {
+                slideCount++;
+            }
+        });
+        
+        if (slideCount === 0) {
+            container.innerHTML = '<div class="pptx-preview"><p>无法解析PPT内容</p></div>';
+            return;
+        }
+        
+        let html = '<div class="pptx-preview">';
+        html += '<p>该PPT包含 ' + slideCount + ' 张幻灯片</p>';
+        html += '<p class="text-muted">由于浏览器限制，PPT预览仅显示基本信息。请下载后查看完整内容。</p>';
+        
+        // 尝试提取幻灯片中的文本
+        for (let i = 1; i <= Math.min(slideCount, 5); i++) {
+            const slideFile = 'ppt/slides/slide' + i + '.xml';
+            slidePromises.push(
+                zip.file(slideFile) ? zip.file(slideFile).async('string') : Promise.resolve('')
+            );
+        }
+        
+        Promise.all(slidePromises).then(slides => {
+            slides.forEach((content, idx) => {
+                if (content) {
+                    // 简单提取文本内容
+                    const textMatches = content.match(/<a:t>([^<]+)<\/a:t>/g);
+                    let text = '';
+                    if (textMatches) {
+                        text = textMatches.map(t => t.replace(/<\/?a:t>/g, '')).join(' ');
+                    }
+                    
+                    html += '<div class="pptx-slide">';
+                    html += '<div class="pptx-slide-number">幻灯片 ' + (idx + 1) + '</div>';
+                    html += '<div>' + (text || '<em class="text-muted">（此幻灯片无文本内容）</em>') + '</div>';
+                    html += '</div>';
+                }
+            });
+            
+            if (slideCount > 5) {
+                html += '<p class="text-muted">... 还有 ' + (slideCount - 5) + ' 张幻灯片 ...</p>';
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        });
+    }).catch(err => {
+        console.error('PPTX parse error:', err);
+        showError('PPT文件解析失败: ' + err.message);
+    });
+}
+
+// 预览PDF文件
+function previewPdf(url, container) {
+    container.innerHTML = '<iframe class="pdf-preview" src="' + url + '"></iframe>';
+}
+
+// 预览图片
+function previewImage(url, container) {
+    container.innerHTML = '<div class="image-preview"><img src="' + url + '" alt="图片预览"></div>';
+}
+
+// 预览视频
+function previewVideo(url, container, mimeType) {
+    container.innerHTML = '<div class="video-preview"><video controls><source src="' + url + '" type="' + mimeType + '">您的浏览器不支持视频播放</video></div>';
+}
+
+// 预览音频
+function previewAudio(url, container, mimeType) {
+    container.innerHTML = '<div class="audio-preview"><audio controls><source src="' + url + '" type="' + mimeType + '">您的浏览器不支持音频播放</audio></div>';
+}
+
+// 预览代码文件
+function previewCode(blob, container, filename) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const content = e.target.result;
+        const lang = getCodeLanguage(filename);
+        
+        container.innerHTML = '<div class="code-preview"><pre><code class="language-' + lang + '"></code></pre></div>';
+        const codeEl = container.querySelector('code');
+        codeEl.textContent = content;
+        
+        if (window.hljs) {
+            hljs.highlightElement(codeEl);
+        }
+    };
+    reader.readAsText(blob);
+}
+
+// 预览文本文件
+function previewText(blob, container) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const content = e.target.result;
+        container.innerHTML = '<div class="text-preview"><pre>' + escapeHtml(content) + '</pre></div>';
+    };
+    reader.readAsText(blob);
+}
+
+// 预览压缩包
+function previewZip(blob, container) {
+    container.innerHTML = '<div class="zip-preview"><p>正在读取压缩包内容...</p></div>';
+    
+    JSZip.loadAsync(blob).then(function(zip) {
+        let html = '<div class="zip-preview">';
+        html += '<h6>压缩包内容列表</h6>';
+        html += '<ul class="zip-file-list">';
+        
+        const files = Object.keys(zip.files).sort();
+        files.forEach(filename => {
+            const file = zip.files[filename];
+            const icon = file.dir ? 'fa-folder' : 'fa-file';
+            const size = file.dir ? '' : formatFileSize(file._data.uncompressedSize || 0);
+            
+            html += '<li class="zip-file-item">';
+            html += '<i class="fas ' + icon + '"></i>';
+            html += '<span class="file-name">' + escapeHtml(filename) + '</span>';
+            if (size) {
+                html += '<span class="file-size">' + size + '</span>';
+            }
+            html += '</li>';
+        });
+        
+        html += '</ul></div>';
+        container.innerHTML = html;
+    }).catch(err => {
+        console.error('ZIP parse error:', err);
+        showError('压缩包解析失败: ' + err.message);
+    });
+}
+
+// HTML转义
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// 主预览函数
+function previewFile(clientId, filePath, version) {
+    const filename = filePath.split(/[\\/]/).pop();
+    const fileType = getFileType(filename);
+
+    // 更新标题
+    $('#preview-filename').text(filename);
+
+    // 构建下载链接（下载按钮使用）
+    let downloadUrl = '/api/files/' + clientId + '/download?path=' + encodeURIComponent(filePath);
+    if (version) {
+        downloadUrl += '&version=' + version;
+    }
+    $('#btn-download').attr('href', downloadUrl);
+
+    // 构建内联预览链接（添加inline=true参数）
+    let inlineUrl = downloadUrl + '&inline=true';
+
+    // 获取文件信息
+    $.ajax({
+        url: '/api/files/' + clientId + '/versions',
+        data: { path: filePath },
+        success: function(res) {
+            if (res.success && res.data && res.data.length > 0) {
+                const fileInfo = res.data[0];
+                const meta = '大小: ' + formatFileSize(fileInfo.file_size || 0) +
+                           ' | 版本: ' + (fileInfo.version_number || 1) +
+                           ' | 备份时间: ' + (fileInfo.backup_date || '-');
+                $('#preview-meta').text(meta);
+            }
+        }
+    });
+
+    // 根据文件类型选择预览方式
+    const container = document.getElementById('preview-content');
+
+    if (fileType === 'pdf') {
+        // PDF使用内联URL预览
+        previewPdf(inlineUrl, container);
+    } else if (fileType === 'image') {
+        // 图片使用内联URL预览
+        previewImage(inlineUrl, container);
+    } else if (fileType === 'video') {
+        const ext = filename.split('.').pop().toLowerCase();
+        const mimeMap = {
+            'mp4': 'video/mp4', 'webm': 'video/webm', 'ogg': 'video/ogg',
+            'mov': 'video/quicktime', 'avi': 'video/x-msvideo',
+            'mkv': 'video/x-matroska', 'flv': 'video/x-flv'
+        };
+        previewVideo(inlineUrl, container, mimeMap[ext] || 'video/mp4');
+    } else if (fileType === 'audio') {
+        const ext = filename.split('.').pop().toLowerCase();
+        const mimeMap = {
+            'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'flac': 'audio/flac',
+            'aac': 'audio/aac', 'ogg': 'audio/ogg', 'wma': 'audio/x-ms-wma',
+            'm4a': 'audio/mp4'
+        };
+        previewAudio(inlineUrl, container, mimeMap[ext] || 'audio/mpeg');
+    } else {
+        // 其他类型需要下载后预览
+        fetch(downloadUrl)
+            .then(response => {
+                if (!response.ok) throw new Error('文件下载失败');
+                return response.blob();
+            })
+            .then(blob => {
+                switch (fileType) {
+                    case 'docx':
+                        previewDocx(blob, container);
+                        break;
+                    case 'xlsx':
+                        previewXlsx(blob, container, filename);
+                        break;
+                    case 'pptx':
+                        previewPptx(blob, container);
+                        break;
+                    case 'code':
+                        previewCode(blob, container, filename);
+                        break;
+                    case 'text':
+                        previewText(blob, container);
+                        break;
+                    case 'zip':
+                        previewZip(blob, container);
+                        break;
+                    default:
+                        showUnsupported(fileType);
+                }
+            })
+            .catch(err => {
+                console.error('File load error:', err);
+                showError('文件加载失败: ' + err.message);
+            });
+    }
+}
+
+// 页面加载完成后执行
+$(function() {
+    const clientId = getUrlParam('client');
+    const filePath = getUrlParam('path');
+    const version = getUrlParam('version');
+    
+    if (!clientId || !filePath) {
+        showError('缺少必要的参数: client 或 path');
+        return;
+    }
+    
+    previewFile(clientId, filePath, version);
+});
+
+})();
+</script>
+{% endblock %}
+</file_content>

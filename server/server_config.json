@@ -1,0 +1,65 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8888,
+    "max_connections": 100,
+    "timeout": 300,
+    "heartbeat_interval": 300
+  },
+  "database": {
+    "host": "localhost",
+    "port": 3306,
+    "user": "root",
+    "password": "123456",
+    "database": "file_backup_system",
+    "pool_size": 10,
+    "charset": "utf8mb4"
+  },
+  "storage": {
+    "root_path": "./backup_storage",
+    "enable_deduplication": true,
+    "enable_compression": true,
+    "chunk_size": 262144,
+    "max_file_size_mb": 1024,
+    "keep_versions": 10,
+    "cleanup_interval": 86400
+  },
+  "backup_defaults": {
+    "monitor_paths": [
+      "C:\\Users\\Documents",
+      "C:\\Users\\Desktop"
+    ],
+    "file_pattern": "*",
+    "exclude_patterns": [
+      "*.tmp",
+      "*.temp",
+      "*.log",
+      "*.lock",
+      "*.swp",
+      "*.swo",
+      "~*",
+      ".DS_Store",
+      "Thumbs.db",
+      "*.bak",
+      "*.cache",
+      "node_modules",
+      ".git",
+      "__pycache__",
+      "*.pyc"
+    ],
+    "max_file_size_mb": 100
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "./logs/server.log",
+    "max_size_mb": 100,
+    "backup_count": 5,
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "performance": {
+    "max_bandwidth_mbps": 0,
+    "max_concurrent_backups": 5,
+    "cpu_limit_percent": 70,
+    "memory_limit_mb": 512
+  }
+}

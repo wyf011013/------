@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}首页仪表盘 - 文件备份系统{% endblock %}
+{% block page_title %}首页仪表盘{% endblock %}
+{% block breadcrumb %}仪表盘{% endblock %}
+
+{% block content %}
+<!-- 统计卡片 -->
+<div class="row">
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="info-box">
+            <span class="info-box-icon bg-info elevation-1"><i class="fas fa-desktop"></i></span>
+            <div class="info-box-content">
+                <span class="info-box-text">客户端总数</span>
+                <span class="info-box-number" id="stat-total-clients">0</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="info-box">
+            <span class="info-box-icon bg-success elevation-1"><i class="fas fa-check-circle"></i></span>
+            <div class="info-box-content">
+                <span class="info-box-text">在线客户端</span>
+                <span class="info-box-number" id="stat-online-clients">0</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="info-box">
+            <span class="info-box-icon bg-warning elevation-1"><i class="fas fa-file-alt"></i></span>
+            <div class="info-box-content">
+                <span class="info-box-text">总备份文件</span>
+                <span class="info-box-number" id="stat-total-backups">0</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="info-box">
+            <span class="info-box-icon bg-danger elevation-1"><i class="fas fa-hdd"></i></span>
+            <div class="info-box-content">
+                <span class="info-box-text">总存储量</span>
+                <span class="info-box-number" id="stat-total-size">0 B</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 正在备份指示 -->
+<div class="row" id="active-backup-row" style="display:none">
+    <div class="col-12">
+        <div class="alert alert-info alert-dismissible">
+            <i class="fas fa-sync fa-spin mr-2"></i>
+            <strong>正在备份:</strong>
+            <span id="active-backup-count">0</span> 个客户端正在传输数据...
+        </div>
+    </div>
+</div>
+
+<!-- 系统资源仪表盘 -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card card-outline card-primary">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-server mr-1"></i> 服务器资源监控</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <!-- CPU仪表盘 -->
+                    <div class="col-sm-3">
+                        <div class="gauge-container">
+                            <div class="gauge-ring">
+                                <canvas id="gauge-cpu" width="120" height="120"></canvas>
+                                <div class="gauge-text" id="gauge-cpu-text">0%</div>
+                            </div>
+                            <div class="gauge-label">CPU使用率</div>
+                        </div>
+                    </div>
+                    <!-- 内存仪表盘 -->
+                    <div class="col-sm-3">
+                        <div class="gauge-container">
+                            <div class="gauge-ring">
+                                <canvas id="gauge-memory" width="120" height="120"></canvas>
+                                <div class="gauge-text" id="gauge-memory-text">0%</div>
+                            </div>
+                            <div class="gauge-label">内存使用率</div>
+                            <small class="text-muted" id="memory-detail">- / -</small>
+                        </div>
+                    </div>
+                    <!-- 磁盘仪表盘 -->
+                    <div class="col-sm-3">
+                        <div class="gauge-container">
+                            <div class="gauge-ring">
+                                <canvas id="gauge-disk" width="120" height="120"></canvas>
+                                <div class="gauge-text" id="gauge-disk-text">0%</div>
+                            </div>
+                            <div class="gauge-label">磁盘使用率</div>
+                            <small class="text-muted" id="disk-detail">- / -</small>
+                        </div>
+                    </div>
+                    <!-- 网络 -->
+                    <div class="col-sm-3">
+                        <div class="gauge-container">
+                            <div style="padding-top:15px">
+                                <div class="mb-2">
+                                    <i class="fas fa-arrow-up text-success"></i>
+                                    <span class="gauge-label">上传</span>
+                                    <div class="gauge-value text-success" id="net-upload">0 KB/s</div>
+                                </div>
+                                <div>
+                                    <i class="fas fa-arrow-down text-primary"></i>
+                                    <span class="gauge-label">下载</span>
+                                    <div class="gauge-value text-primary" id="net-download">0 KB/s</div>
+                                </div>
+                            </div>
+                            <div class="gauge-label">网络速度</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- 客户端状态 -->
+        <div class="card card-outline card-success">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-chart-pie mr-1"></i> 客户端状态</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div style="height:180px">
+                    <canvas id="clientStatusChart"></canvas>
+                </div>
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between">
+                        <span><span class="status-dot online"></span>在线</span>
+                        <span id="chart-online">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span><span class="status-dot offline"></span>离线</span>
+                        <span id="chart-offline">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近活动 & 备份趋势 -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card card-outline card-warning">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-chart-line mr-1"></i> 备份趋势 (近7天)</h3>
+            </div>
+            <div class="card-body" style="height:300px">
+                <canvas id="backupTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-outline card-danger">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-clock mr-1"></i> 最近活动</h3>
+            </div>
+            <div class="card-body p-0" style="max-height:300px;overflow-y:auto">
+                <ul class="products-list product-list-in-card pl-2 pr-2" id="recent-logs">
+                    <li class="item text-center text-muted py-3">加载中...</li>
+                </ul>
+            </div>
+            <div class="card-footer text-center">
+                <a href="{{ url_for('logs') }}">查看所有日志</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var clientChart = null;
+var trendChart = null;
+
+function refreshDashboard() {
+    $.getJSON('/api/system-stats', function(res) {
+        if (!res.success) return;
+        var d = res.data;
+
+        // 统计卡片
+        $('#stat-total-clients').text(d.total_clients);
+        $('#stat-online-clients').text(d.online_clients);
+        $('#stat-total-backups').text(d.total_backups);
+        $('#stat-total-size').text(formatFileSize(d.total_size || 0));
+
+        // CPU仪表盘
+        var cpu = Math.round(d.cpu_percent || 0);
+        drawGauge('gauge-cpu', cpu, cpu > 80 ? '#dc3545' : cpu > 50 ? '#ffc107' : '#28a745');
+        $('#gauge-cpu-text').text(cpu + '%');
+
+        // 内存仪表盘
+        var mem = Math.round(d.memory_percent || 0);
+        drawGauge('gauge-memory', mem, mem > 80 ? '#dc3545' : mem > 50 ? '#ffc107' : '#17a2b8');
+        $('#gauge-memory-text').text(mem + '%');
+        $('#memory-detail').text(formatFileSize(d.memory_used || 0) + ' / ' + formatFileSize(d.memory_total || 0));
+
+        // 磁盘仪表盘
+        var disk = Math.round(d.disk_percent || 0);
+        drawGauge('gauge-disk', disk, disk > 90 ? '#dc3545' : disk > 70 ? '#ffc107' : '#007bff');
+        $('#gauge-disk-text').text(disk + '%');
+        $('#disk-detail').text(formatFileSize(d.disk_used || 0) + ' / ' + formatFileSize(d.disk_total || 0));
+
+        // 网络速度
+        $('#net-upload').text(formatFileSize(d.net_upload_speed || 0) + '/s');
+        $('#net-download').text(formatFileSize(d.net_download_speed || 0) + '/s');
+
+        // 正在备份指示
+        var ab = d.active_backups || 0;
+        if (ab > 0) {
+            $('#active-backup-count').text(ab);
+            $('#active-backup-row').show();
+        } else {
+            $('#active-backup-row').hide();
+        }
+
+        // 客户端状态图
+        var online = d.online_clients || 0;
+        var offline = (d.total_clients || 0) - online;
+        $('#chart-online').text(online);
+        $('#chart-offline').text(offline);
+
+        if (clientChart) {
+            clientChart.data.datasets[0].data = [online, offline];
+            clientChart.update();
+        }
+    });
+
+    // 最近日志
+    $.getJSON('/api/logs?limit=10', function(res) {
+        if (!res.success) return;
+        var html = '';
+        if (res.data.length === 0) {
+            html = '<li class="item text-center text-muted py-3">暂无日志</li>';
+        } else {
+            res.data.forEach(function(log) {
+                var badge = log.log_level === 'error' ? 'danger' : (log.log_level === 'warning' ? 'warning' : 'info');
+                html += '<li class="item"><div class="product-info">' +
+                    '<a href="#" class="product-title">' + (log.message || '').substring(0, 60) +
+                    '<span class="badge badge-' + badge + ' float-right">' + log.log_level + '</span></a>' +
+                    '<span class="product-description">' + formatDate(log.created_at) +
+                    (log.computer_name ? ' - ' + log.computer_name : '') + '</span></div></li>';
+            });
+        }
+        $('#recent-logs').html(html);
+    });
+}
+
+$(function() {
+    // 初始化客户端状态饼图
+    var ctx1 = document.getElementById('clientStatusChart').getContext('2d');
+    clientChart = new Chart(ctx1, {
+        type: 'doughnut',
+        data: {
+            labels: ['在线', '离线'],
+            datasets: [{data: [0, 0], backgroundColor: ['#28a745', '#dc3545']}]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {legend: {display: false}}
+        }
+    });
+
+    // 初始化备份趋势图
+    var ctx2 = document.getElementById('backupTrendChart').getContext('2d');
+    var labels = [];
+    var now = new Date();
+    for (var i = 6; i >= 0; i--) {
+        var dd = new Date(now); dd.setDate(dd.getDate() - i);
+        labels.push((dd.getMonth()+1) + '/' + dd.getDate());
+    }
+    trendChart = new Chart(ctx2, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '备份文件数',
+                data: [0,0,0,0,0,0,0],
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0,123,255,0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {legend: {display: false}},
+            scales: {y: {beginAtZero: true}}
+        }
+    });
+
+    // 加载数据
+    refreshDashboard();
+
+    // 每5秒刷新
+    setInterval(refreshDashboard, 5000);
+});
+</script>
+{% endblock %}

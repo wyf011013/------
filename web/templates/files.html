@@ -1,0 +1,1133 @@
+{% extends "base.html" %}
+
+{% block title %}文件管理 - 文件备份系统{% endblock %}
+{% block page_title %}文件管理{% endblock %}
+{% block breadcrumb %}文件管理{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ===== 文件浏览器核心样式 ===== */
+.fb-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+}
+.fb-toolbar .btn-group .btn { padding: 4px 10px; }
+.fb-breadcrumb {
+    display: flex;
+    align-items: center;
+    background: #f4f6f9;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 13px;
+    overflow-x: auto;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+.fb-breadcrumb .bc-sep { color: #adb5bd; margin: 0 2px; }
+.fb-breadcrumb .bc-item { cursor: pointer; color: #007bff; padding: 2px 4px; border-radius: 3px; }
+.fb-breadcrumb .bc-item:hover { background: #e2e6ea; }
+.fb-breadcrumb .bc-item.active { color: #495057; cursor: default; font-weight: 600; }
+
+/* 搜索框 */
+.fb-search { width: 220px; }
+
+/* 排序选择 */
+.fb-sort { width: 140px; font-size: 13px; }
+
+/* 统计栏 */
+.fb-status {
+    font-size: 12px;
+    color: #6c757d;
+    padding: 4px 0;
+    border-top: 1px solid #eee;
+    margin-top: 4px;
+}
+
+/* ===== 列表视图 ===== */
+.fb-list-view { width: 100%; }
+.fb-list-view .fb-header-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    font-size: 12px;
+    color: #6c757d;
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+}
+.fb-list-view .fb-header-row > div:hover { color: #333; }
+.fb-list-view .fb-header-row .sort-icon { font-size: 10px; margin-left: 3px; }
+.fb-list-view .fb-row {
+    display: flex;
+    align-items: center;
+    padding: 7px 12px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.1s;
+    font-size: 13px;
+}
+.fb-list-view .fb-row:hover { background: #e8f4fd; }
+.fb-list-view .fb-row.selected { background: #cce5ff; }
+.fb-col-name { flex: 4; min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+.fb-col-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-col-size { flex: 1; min-width: 80px; text-align: right; color: #555; }
+.fb-col-ver  { flex: 1; min-width: 60px; text-align: center; }
+.fb-col-date { flex: 1.5; min-width: 130px; color: #555; }
+.fb-col-act  { flex: 1; min-width: 100px; text-align: right; }
+.fb-col-act .btn { padding: 1px 6px; font-size: 12px; }
+
+/* 文件图标（列表） */
+.fb-icon { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+.fb-icon.folder { color: #f0c040; }
+.fb-icon.file { color: #6c757d; }
+.fb-icon.img  { color: #e83e8c; }
+.fb-icon.code { color: #17a2b8; }
+.fb-icon.doc  { color: #007bff; }
+.fb-icon.zip  { color: #fd7e14; }
+.fb-icon.exe  { color: #28a745; }
+.fb-icon.pdf  { color: #dc3545; }
+
+/* ===== 图标/网格视图 ===== */
+.fb-grid-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 6px;
+    padding: 8px 4px;
+}
+.fb-grid-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.1s;
+    position: relative;
+}
+.fb-grid-item:hover { background: #e8f4fd; }
+.fb-grid-item.selected { background: #cce5ff; }
+.fb-grid-item .grid-icon { font-size: 40px; margin-bottom: 4px; }
+.fb-grid-item .grid-icon.folder { color: #f0c040; }
+.fb-grid-item .grid-icon.file { color: #9e9e9e; }
+.fb-grid-item .grid-icon.img  { color: #e83e8c; }
+.fb-grid-item .grid-icon.code { color: #17a2b8; }
+.fb-grid-item .grid-icon.doc  { color: #007bff; }
+.fb-grid-item .grid-icon.zip  { color: #fd7e14; }
+.fb-grid-item .grid-icon.exe  { color: #28a745; }
+.fb-grid-item .grid-icon.pdf  { color: #dc3545; }
+.fb-grid-item .grid-name {
+    font-size: 11px;
+    line-height: 1.3;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-all;
+}
+
+/* 右键菜单 */
+.fb-context-menu {
+    position: fixed;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.15);
+    z-index: 9999;
+    min-width: 160px;
+    padding: 4px 0;
+    display: none;
+}
+.fb-context-menu .ctx-item {
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.fb-context-menu .ctx-item:hover { background: #e8f4fd; }
+.fb-context-menu .ctx-divider { border-top: 1px solid #eee; margin: 2px 0; }
+
+/* 空状态 */
+.fb-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #adb5bd;
+}
+.fb-empty i { font-size: 48px; margin-bottom: 12px; display: block; }
+
+/* 加载中 */
+.fb-loading {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card card-outline card-success">
+            <div class="card-header py-2">
+                <h3 class="card-title"><i class="fas fa-folder-open mr-1"></i> 备份文件浏览</h3>
+                <div class="card-tools">
+                    <div class="input-group input-group-sm" style="width:250px">
+                        <select class="form-control" id="client-selector">
+                            <option value="">-- 选择客户端 --</option>
+                            {% for c in clients %}
+                            <option value="{{ c.id }}">{{ c.computer_name }} ({{ c.ip_address or '-' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-2">
+                <!-- 未选择客户端提示 -->
+                <div id="no-client-hint" class="text-center text-muted py-5">
+                    <i class="fas fa-hand-pointer fa-3x mb-3 d-block"></i>
+                    <p>请从右上角选择一个客户端查看其备份文件</p>
+                </div>
+
+                <!-- 文件浏览器主体 -->
+                <div id="file-browser" style="display:none">
+                    <!-- 工具栏 -->
+                    <div class="fb-toolbar">
+                        <button class="btn btn-sm btn-outline-secondary" id="btn-back" title="返回上级">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btn-home" title="根目录">
+                            <i class="fas fa-home"></i>
+                        </button>
+
+                        <!-- 批量操作工具栏 -->
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-sm btn-outline-secondary" id="btn-select-all" title="全选">
+                                <i class="fas fa-check-square"></i> 全选
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" id="btn-batch-download" title="批量下载" disabled>
+                                <i class="fas fa-download"></i> 批量下载
+                            </button>
+                        </div>
+
+                        <!-- 已选择文件数量 -->
+                        <div id="selected-count" class="text-sm text-muted ml-2"></div>
+
+                        <!-- 面包屑路径 -->
+                        <div class="fb-breadcrumb" id="fb-breadcrumb"></div>
+
+                        <!-- 搜索 -->
+                        <div class="input-group input-group-sm fb-search">
+                            <input type="text" class="form-control" id="fb-search-input" placeholder="搜索文件名...">
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary" id="btn-search-clear" title="清除搜索">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 排序 -->
+                        <select class="form-control form-control-sm fb-sort" id="fb-sort">
+                            <option value="name-asc">名称 A-Z</option>
+                            <option value="name-desc">名称 Z-A</option>
+                            <option value="size-desc">大小 大→小</option>
+                            <option value="size-asc">大小 小→大</option>
+                            <option value="date-desc" selected>时间 新→旧</option>
+                            <option value="date-asc">时间 旧→新</option>
+                        </select>
+
+                        <!-- 视图切换 -->
+                        <div class="btn-group btn-group-sm" id="view-toggle">
+                            <button class="btn btn-outline-secondary active" data-view="list" title="列表视图">
+                                <i class="fas fa-list"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary" data-view="grid" title="图标视图">
+                                <i class="fas fa-th-large"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 文件内容区域 -->
+                    <div id="fb-content" style="min-height: 300px;"></div>
+
+                    <!-- 状态栏 -->
+                    <div class="fb-status" id="fb-status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 右键菜单 -->
+<div class="fb-context-menu" id="fb-ctx-menu">
+    <div class="ctx-item" data-action="open"><i class="fas fa-folder-open"></i> 打开</div>
+    <div class="ctx-item" data-action="preview"><i class="fas fa-eye"></i> 预览</div>
+    <div class="ctx-item" data-action="download"><i class="fas fa-download"></i> 下载</div>
+    <div class="ctx-item" data-action="versions"><i class="fas fa-history"></i> 版本历史</div>
+    <div class="ctx-divider"></div>
+    <div class="ctx-item" data-action="copypath"><i class="fas fa-copy"></i> 复制路径</div>
+</div>
+
+<!-- 版本历史模态框 -->
+<div class="modal fade" id="versionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white py-2">
+                <h5 class="modal-title"><i class="fas fa-history mr-1"></i> 版本历史</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2"><strong>文件:</strong> <span id="ver-file-path" style="word-break:break-all"></span></p>
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            <th>版本</th>
+                            <th>大小</th>
+                            <th>哈希</th>
+                            <th>类型</th>
+                            <th>备份时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="versions-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+'use strict';
+
+/* ================================================================   STATE   ================================================================ */
+var clientId = null;
+var allFiles = [];            // 从API获取的原始文件列表
+var virtualTree = {};         // 构建的虚拟文件夹树
+var currentPath = '';         // 当前浏览路径 (如 "C:/Users/Documents")
+var currentView = 'list';     // 'list' | 'grid'
+var currentSort = 'date-desc';
+var searchQuery = '';
+var selectedItem = null;      // 当前选中的项
+var selectedItems = [];       // 多选的项列表
+var ctxTarget = null;         // 右键菜单目标
+var lastClickItem = null;     // 上次点击的项，用于Shift选择
+
+/* ================================================================
+   FILE TYPE DETECTION
+   ================================================================ */
+var EXT_ICONS = {
+    // 图片
+    'png': {icon:'fa-file-image', cls:'img'}, 'jpg': {icon:'fa-file-image', cls:'img'},
+    'jpeg': {icon:'fa-file-image', cls:'img'}, 'gif': {icon:'fa-file-image', cls:'img'},
+    'bmp': {icon:'fa-file-image', cls:'img'}, 'svg': {icon:'fa-file-image', cls:'img'},
+    'ico': {icon:'fa-file-image', cls:'img'}, 'webp': {icon:'fa-file-image', cls:'img'},
+    // 代码
+    'py': {icon:'fa-file-code', cls:'code'}, 'js': {icon:'fa-file-code', cls:'code'},
+    'ts': {icon:'fa-file-code', cls:'code'}, 'html': {icon:'fa-file-code', cls:'code'},
+    'css': {icon:'fa-file-code', cls:'code'}, 'java': {icon:'fa-file-code', cls:'code'},
+    'cpp': {icon:'fa-file-code', cls:'code'}, 'c': {icon:'fa-file-code', cls:'code'},
+    'h': {icon:'fa-file-code', cls:'code'}, 'cs': {icon:'fa-file-code', cls:'code'},
+    'go': {icon:'fa-file-code', cls:'code'}, 'rs': {icon:'fa-file-code', cls:'code'},
+    'php': {icon:'fa-file-code', cls:'code'}, 'rb': {icon:'fa-file-code', cls:'code'},
+    'json': {icon:'fa-file-code', cls:'code'}, 'xml': {icon:'fa-file-code', cls:'code'},
+    'yml': {icon:'fa-file-code', cls:'code'}, 'yaml': {icon:'fa-file-code', cls:'code'},
+    'sql': {icon:'fa-file-code', cls:'code'}, 'sh': {icon:'fa-file-code', cls:'code'},
+    'bat': {icon:'fa-file-code', cls:'code'}, 'ps1': {icon:'fa-file-code', cls:'code'},
+    // 文档
+    'doc': {icon:'fa-file-word', cls:'doc'}, 'docx': {icon:'fa-file-word', cls:'doc'},
+    'xls': {icon:'fa-file-excel', cls:'doc'}, 'xlsx': {icon:'fa-file-excel', cls:'doc'},
+    'ppt': {icon:'fa-file-powerpoint', cls:'doc'}, 'pptx': {icon:'fa-file-powerpoint', cls:'doc'},
+    'txt': {icon:'fa-file-alt', cls:'file'}, 'md': {icon:'fa-file-alt', cls:'file'},
+    'csv': {icon:'fa-file-csv', cls:'doc'}, 'log': {icon:'fa-file-alt', cls:'file'},
+    // PDF
+    'pdf': {icon:'fa-file-pdf', cls:'pdf'},
+    // 压缩
+    'zip': {icon:'fa-file-archive', cls:'zip'}, 'rar': {icon:'fa-file-archive', cls:'zip'},
+    '7z': {icon:'fa-file-archive', cls:'zip'}, 'gz': {icon:'fa-file-archive', cls:'zip'},
+    'tar': {icon:'fa-file-archive', cls:'zip'},
+    // 可执行
+    'exe': {icon:'fa-file', cls:'exe'}, 'msi': {icon:'fa-file', cls:'exe'},
+    'dll': {icon:'fa-cog', cls:'exe'},
+};
+
+function getFileIcon(name, isFolder) {
+    if (isFolder) return {icon: 'fa-folder', cls: 'folder'};
+    var ext = (name.split('.').pop() || '').toLowerCase();
+    return EXT_ICONS[ext] || {icon: 'fa-file', cls: 'file'};
+}
+
+/* ================================================================
+   VIRTUAL FOLDER TREE
+   ================================================================ */
+function buildVirtualTree(files) {
+    // 从平铺的文件列表构建虚拟目录树
+    // 每个文件有 file_path 如 "C:\Users\xxx\Documents\test.txt"
+    var tree = {_files: {}, _folders: {}};
+
+    files.forEach(function(f) {
+        var fp = f.file_path || '';
+        // 统一使用正斜杠
+        fp = fp.replace(/\\/g, '/');
+        var parts = fp.split('/');
+        var node = tree;
+        // 遍历路径中的文件夹部分
+        for (var i = 0; i < parts.length - 1; i++) {
+            var seg = parts[i];
+            if (!seg) continue;
+            if (!node._folders[seg]) {
+                node._folders[seg] = {_files: {}, _folders: {}};
+            }
+            node = node._folders[seg];
+        }
+        // 文件名
+        var fileName = parts[parts.length - 1];
+        if (fileName) {
+            node._files[fileName] = f;
+        }
+    });
+
+    return tree;
+}
+
+function getNodeAtPath(path) {
+    if (!path) return virtualTree;
+    var parts = path.split('/').filter(Boolean);
+    var node = virtualTree;
+    for (var i = 0; i < parts.length; i++) {
+        if (!node._folders || !node._folders[parts[i]]) return null;
+        node = node._folders[parts[i]];
+    }
+    return node;
+}
+
+function getEntries(path) {
+    var node = getNodeAtPath(path);
+    if (!node) return [];
+    var entries = [];
+
+    // 文件夹
+    Object.keys(node._folders).forEach(function(name) {
+        var sub = node._folders[name];
+        // 计算子文件夹中的文件总数和总大小
+        var stats = countNode(sub);
+        entries.push({
+            name: name,
+            isFolder: true,
+            fileCount: stats.count,
+            totalSize: stats.size,
+            latestDate: stats.latestDate,
+            fullPath: path ? path + '/' + name : name,
+        });
+    });
+
+    // 文件
+    Object.keys(node._files).forEach(function(name) {
+        var f = node._files[name];
+        entries.push({
+            name: name,
+            isFolder: false,
+            size: f.file_size || 0,
+            version: f.version_number || 1,
+            date: f.backup_date || '',
+            changeType: f.change_type || 'modified',
+            filePath: f.file_path,
+            fullPath: path ? path + '/' + name : name,
+        });
+    });
+
+    return entries;
+}
+
+function countNode(node) {
+    var count = 0, size = 0, latestDate = '';
+    Object.keys(node._files).forEach(function(n) {
+        count++;
+        size += (node._files[n].file_size || 0);
+        var d = node._files[n].backup_date || '';
+        if (d > latestDate) latestDate = d;
+    });
+    Object.keys(node._folders).forEach(function(n) {
+        var sub = countNode(node._folders[n]);
+        count += sub.count;
+        size += sub.size;
+        if (sub.latestDate > latestDate) latestDate = sub.latestDate;
+    });
+    return {count: count, size: size, latestDate: latestDate};
+}
+
+/* ================================================================
+   SEARCH - 递归搜索所有层级
+   ================================================================ */
+function searchFiles(query) {
+    if (!query) return null;
+    var q = query.toLowerCase();
+    var results = [];
+    allFiles.forEach(function(f) {
+        var fp = (f.file_path || '').replace(/\\/g, '/');
+        var name = fp.split('/').pop() || '';
+        if (name.toLowerCase().indexOf(q) !== -1 || fp.toLowerCase().indexOf(q) !== -1) {
+            results.push({
+                name: name,
+                isFolder: false,
+                size: f.file_size || 0,
+                version: f.version_number || 1,
+                date: f.backup_date || '',
+                changeType: f.change_type || 'modified',
+                filePath: f.file_path,
+                fullPath: fp,
+                parentPath: fp.substring(0, fp.length - name.length - 1),
+            });
+        }
+    });
+    return results;
+}
+
+/* ================================================================
+   SORT
+   ================================================================ */
+function sortEntries(entries, sortKey) {
+    var parts = sortKey.split('-');
+    var field = parts[0], dir = parts[1] === 'asc' ? 1 : -1;
+
+    return entries.sort(function(a, b) {
+        // 文件夹始终排在前面
+        if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+
+        var va, vb;
+        if (field === 'name') {
+            va = a.name.toLowerCase();
+            vb = b.name.toLowerCase();
+            return va < vb ? -dir : va > vb ? dir : 0;
+        } else if (field === 'size') {
+            va = a.isFolder ? a.totalSize : a.size;
+            vb = b.isFolder ? b.totalSize : b.size;
+            return (va - vb) * dir;
+        } else if (field === 'date') {
+            va = a.isFolder ? (a.latestDate || '') : (a.date || '');
+            vb = b.isFolder ? (b.latestDate || '') : (b.date || '');
+            return va < vb ? -dir : va > vb ? dir : 0;
+        }
+        return 0;
+    });
+}
+
+/* ================================================================
+   RENDER
+   ================================================================ */
+function render() {
+    var entries;
+    var isSearch = searchQuery.length > 0;
+
+    if (isSearch) {
+        entries = searchFiles(searchQuery);
+    } else {
+        entries = getEntries(currentPath);
+    }
+
+    if (!entries || entries.length === 0) {
+        var emptyMsg = isSearch ? '未找到匹配 "' + escHtml(searchQuery) + '" 的文件' : '此文件夹为空';
+        $('#fb-content').html('<div class="fb-empty"><i class="fas fa-folder-open"></i>' + emptyMsg + '</div>');
+        updateStatus(0, 0, 0);
+        return;
+    }
+
+    entries = sortEntries(entries, currentSort);
+
+    var folderCount = 0, fileCount = 0, totalSize = 0;
+    entries.forEach(function(e) {
+        if (e.isFolder) folderCount++;
+        else { fileCount++; totalSize += (e.size || 0); }
+    });
+
+    if (currentView === 'list') {
+        renderListView(entries, isSearch);
+    } else {
+        renderGridView(entries, isSearch);
+    }
+
+    updateStatus(folderCount, fileCount, totalSize);
+    renderBreadcrumb();
+}
+
+function renderListView(entries, isSearch) {
+    var html = '<div class="fb-list-view">';
+    // 表头
+    html += '<div class="fb-header-row">';
+    html += '<div class="fb-col-name" data-sort="name">名称 ' + sortArrow('name') + '</div>';
+    html += '<div class="fb-col-size" data-sort="size">大小 ' + sortArrow('size') + '</div>';
+    html += '<div class="fb-col-ver">版本</div>';
+    html += '<div class="fb-col-date" data-sort="date">备份时间 ' + sortArrow('date') + '</div>';
+    html += '<div class="fb-col-act">操作</div>';
+    html += '</div>';
+
+    entries.forEach(function(e) {
+        var ico = getFileIcon(e.name, e.isFolder);
+        html += '<div class="fb-row" data-path="' + escAttr(e.fullPath) + '" data-folder="' + (e.isFolder?1:0) + '"'
+             + (e.filePath ? ' data-filepath="' + escAttr(e.filePath) + '"' : '') + '>';
+
+        // 名称
+        html += '<div class="fb-col-name">';
+        html += '<i class="fas ' + ico.icon + ' fb-icon ' + ico.cls + '"></i>';
+        html += '<span title="' + escAttr(e.name) + '">' + escHtml(e.name) + '</span>';
+        if (isSearch && e.parentPath) {
+            html += ' <small class="text-muted ml-1" title="' + escAttr(e.parentPath) + '">(' +
+                    truncPath(e.parentPath, 40) + ')</small>';
+        }
+        html += '</div>';
+
+        // 大小
+        if (e.isFolder) {
+            html += '<div class="fb-col-size text-muted">' + e.fileCount + ' 个文件</div>';
+        } else {
+            html += '<div class="fb-col-size">' + formatFileSize(e.size) + '</div>';
+        }
+
+        // 版本
+        if (e.isFolder) {
+            html += '<div class="fb-col-ver">-</div>';
+        } else {
+            html += '<div class="fb-col-ver"><span class="badge badge-info">v' + e.version + '</span></div>';
+        }
+
+        // 时间
+        var dateStr = e.isFolder ? (e.latestDate ? formatDate(e.latestDate) : '-') : formatDate(e.date);
+        html += '<div class="fb-col-date">' + dateStr + '</div>';
+
+        // 操作
+        html += '<div class="fb-col-act">';
+        if (e.isFolder) {
+            html += '<button class="btn btn-sm btn-outline-primary btn-open" title="打开"><i class="fas fa-folder-open"></i></button>';
+        } else {
+            html += '<button class="btn btn-sm btn-info btn-versions mr-1" title="版本历史"><i class="fas fa-history"></i></button>';
+            html += '<a class="btn btn-sm btn-success btn-dl" href="/api/files/' + clientId + '/download?path='
+                  + encodeURIComponent(e.filePath) + '" title="下载"><i class="fas fa-download"></i></a>';
+        }
+        html += '</div>';
+        html += '</div>';
+    });
+
+    html += '</div>';
+    $('#fb-content').html(html);
+}
+
+function renderGridView(entries, isSearch) {
+    var html = '<div class="fb-grid-view">';
+    entries.forEach(function(e) {
+        var ico = getFileIcon(e.name, e.isFolder);
+        html += '<div class="fb-grid-item" data-path="' + escAttr(e.fullPath) + '" data-folder="' + (e.isFolder?1:0) + '"'
+             + (e.filePath ? ' data-filepath="' + escAttr(e.filePath) + '"' : '')
+             + ' title="' + escAttr(e.name + (e.isFolder ? ' (' + e.fileCount + ' 个文件)' : ' (' + formatFileSize(e.size) + ')')) + '">';
+        html += '<i class="fas ' + ico.icon + ' grid-icon ' + ico.cls + '"></i>';
+        html += '<div class="grid-name">' + escHtml(e.name) + '</div>';
+        html += '</div>';
+    });
+    html += '</div>';
+    $('#fb-content').html(html);
+}
+
+function renderBreadcrumb() {
+    var html = '<span class="bc-item' + (!currentPath ? ' active' : '') + '" data-path="">'
+             + '<i class="fas fa-hdd mr-1"></i>根目录</span>';
+    if (currentPath) {
+        var parts = currentPath.split('/');
+        var accum = '';
+        parts.forEach(function(p, i) {
+            if (!p) return;
+            accum += (accum ? '/' : '') + p;
+            html += '<span class="bc-sep">/</span>';
+            html += '<span class="bc-item' + (i === parts.length - 1 ? ' active' : '') + '" data-path="' + escAttr(accum) + '">' + escHtml(p) + '</span>';
+        });
+    }
+    if (searchQuery) {
+        html += '<span class="bc-sep">|</span><span class="text-info"><i class="fas fa-search mr-1"></i>搜索: "' + escHtml(searchQuery) + '"</span>';
+    }
+    $('#fb-breadcrumb').html(html);
+}
+
+function sortArrow(field) {
+    var parts = currentSort.split('-');
+    if (parts[0] !== field) return '<i class="fas fa-sort sort-icon text-muted"></i>';
+    return parts[1] === 'asc'
+        ? '<i class="fas fa-sort-up sort-icon text-primary"></i>'
+        : '<i class="fas fa-sort-down sort-icon text-primary"></i>';
+}
+
+function updateStatus(folders, files, size) {
+    var parts = [];
+    if (folders) parts.push(folders + ' 个文件夹');
+    if (files) parts.push(files + ' 个文件');
+    if (size) parts.push('总大小: ' + formatFileSize(size));
+    if (searchQuery) parts.push('搜索模式');
+    $('#fb-status').text(parts.join('  |  ') || '空文件夹');
+}
+
+/* ================================================================
+   NAVIGATION
+   ================================================================ */
+function navigateTo(path) {
+    currentPath = path || '';
+    searchQuery = '';
+    $('#fb-search-input').val('');
+    selectedItem = null;
+    selectedItems = [];
+    lastClickItem = null;
+    render();
+}
+
+function navigateUp() {
+    if (!currentPath) return;
+    var parts = currentPath.split('/');
+    parts.pop();
+    navigateTo(parts.join('/'));
+}
+
+/* ================================================================
+   DATA LOADING
+   ================================================================ */
+function loadClientFiles(id) {
+    clientId = id;
+    allFiles = [];
+    virtualTree = {};
+    currentPath = '';
+    searchQuery = '';
+    selectedItem = null;
+
+    $('#fb-content').html('<div class="fb-loading"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">加载文件列表...</p></div>');
+
+    $.getJSON('/api/files/' + id, function(res) {
+        if (!res.success) {
+            $('#fb-content').html('<div class="fb-empty"><i class="fas fa-exclamation-triangle"></i>加载失败</div>');
+            return;
+        }
+        allFiles = res.data || [];
+        virtualTree = buildVirtualTree(allFiles);
+
+        // 如果根目录只有一个文件夹，自动进入
+        var rootFolders = Object.keys(virtualTree._folders);
+        var rootFiles = Object.keys(virtualTree._files);
+        if (rootFolders.length === 1 && rootFiles.length === 0) {
+            currentPath = rootFolders[0];
+            // 继续自动深入单文件夹
+            var node = virtualTree._folders[rootFolders[0]];
+            while (node) {
+                var subF = Object.keys(node._folders);
+                var subFi = Object.keys(node._files);
+                if (subF.length === 1 && subFi.length === 0) {
+                    currentPath += '/' + subF[0];
+                    node = node._folders[subF[0]];
+                } else {
+                    break;
+                }
+            }
+        }
+
+        render();
+    }).fail(function() {
+        $('#fb-content').html('<div class="fb-empty"><i class="fas fa-exclamation-triangle"></i>请求失败</div>');
+    });
+}
+
+/* ================================================================
+   VERSION HISTORY
+   ================================================================ */
+function showVersions(filePath) {
+    if (!clientId || !filePath) return;
+    $('#ver-file-path').text(filePath);
+    $('#versions-tbody').html('<tr><td colspan="6" class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> 加载中...</td></tr>');
+    $('#versionModal').modal('show');
+
+    $.getJSON('/api/files/' + clientId + '/versions?path=' + encodeURIComponent(filePath), function(res) {
+        if (!res.success || !res.data || res.data.length === 0) {
+            $('#versions-tbody').html('<tr><td colspan="6" class="text-center text-muted py-3">暂无版本记录</td></tr>');
+            return;
+        }
+        var html = '';
+        res.data.forEach(function(v) {
+            var changeLabel = v.change_type === 'created' ? '<span class="badge badge-success">新建</span>' :
+                              v.change_type === 'deleted' ? '<span class="badge badge-danger">删除</span>' :
+                              '<span class="badge badge-warning">修改</span>';
+            html += '<tr>' +
+                '<td>v' + v.version_number + '</td>' +
+                '<td>' + formatFileSize(v.file_size || 0) + '</td>' +
+                '<td><code>' + (v.file_hash || '-').substring(0, 12) + '...</code></td>' +
+                '<td>' + changeLabel + '</td>' +
+                '<td>' + formatDate(v.backup_date) + '</td>' +
+                '<td>' +
+                    '<a class="btn btn-sm btn-success" href="/api/files/' + clientId + '/download?path=' + encodeURIComponent(filePath) + '&version=' + v.version_number + '">' +
+                        '<i class="fas fa-download"></i> 下载' +
+                    '</a>' +
+                '</td>' +
+            '</tr>';
+        });
+        $('#versions-tbody').html(html);
+    }).fail(function() {
+        $('#versions-tbody').html('<tr><td colspan="6" class="text-center text-danger py-3">请求失败</td></tr>');
+    });
+}
+
+/* ================================================================
+   HELPERS
+   ================================================================ */
+function escHtml(s) { return $('<span>').text(s).html(); }
+function escAttr(s) { return s.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function truncPath(p, max) { return p.length > max ? '...' + p.slice(-max) : p; }
+
+/* ================================================================
+   EVENT BINDINGS
+   ================================================================ */
+
+// 客户端选择
+$('#client-selector').change(function() {
+    var val = $(this).val();
+    if (val) {
+        $('#no-client-hint').hide();
+        $('#file-browser').show();
+        loadClientFiles(val);
+    } else {
+        $('#no-client-hint').show();
+        $('#file-browser').hide();
+    }
+});
+
+// 返回上级
+$('#btn-back').click(function() { navigateUp(); });
+$('#btn-home').click(function() { navigateTo(''); });
+
+// 搜索
+var searchTimer = null;
+$('#fb-search-input').on('input', function() {
+    var q = $(this).val().trim();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function() {
+        searchQuery = q;
+        render();
+    }, 200);
+});
+$('#btn-search-clear').click(function() {
+    searchQuery = '';
+    $('#fb-search-input').val('');
+    render();
+});
+
+// 排序下拉
+$('#fb-sort').change(function() {
+    currentSort = $(this).val();
+    render();
+});
+
+// 列表表头排序点击
+$(document).on('click', '.fb-header-row > div[data-sort]', function() {
+    var field = $(this).data('sort');
+    var parts = currentSort.split('-');
+    if (parts[0] === field) {
+        currentSort = field + '-' + (parts[1] === 'asc' ? 'desc' : 'asc');
+    } else {
+        currentSort = field + '-asc';
+    }
+    $('#fb-sort').val(currentSort);
+    render();
+});
+
+// 视图切换
+$('#view-toggle .btn').click(function() {
+    $('#view-toggle .btn').removeClass('active');
+    $(this).addClass('active');
+    currentView = $(this).data('view');
+    render();
+});
+
+// 双击/单击行
+$(document).on('dblclick', '.fb-row, .fb-grid-item', function() {
+    var isFolder = $(this).data('folder') == 1;
+    if (isFolder) {
+        navigateTo($(this).data('path'));
+    } else {
+        var fp = $(this).data('filepath');
+        if (fp) openPreview(fp);
+    }
+});
+
+// 打开文件预览
+function openPreview(filePath) {
+    if (!clientId || !filePath) return;
+    var previewUrl = '/files/preview?client=' + clientId + '&path=' + encodeURIComponent(filePath);
+    window.open(previewUrl, '_blank');
+}
+
+// 处理多选逻辑
+function handleItemClick(e, $item) {
+    if ($(e.target).closest('.btn, a').length) return;
+    
+    var isCtrlPressed = e.ctrlKey || e.metaKey;
+    var isShiftPressed = e.shiftKey;
+    var itemData = {
+        path: $item.data('path'),
+        isFolder: $item.data('folder') == 1,
+        filePath: $item.data('filepath'),
+        element: $item
+    };
+    
+    if (isShiftPressed && lastClickItem) {
+        // Shift+点击：连续选择
+        selectRange($item);
+    } else if (isCtrlPressed) {
+        // Ctrl+点击：切换选择状态
+        toggleSelection(itemData);
+    } else {
+        // 普通点击：单选
+        clearSelection();
+        addSelection(itemData);
+    }
+    
+    lastClickItem = itemData;
+    updateSelectionUI();
+}
+
+// 连续选择
+function selectRange($targetItem) {
+    var $items = $('.fb-row, .fb-grid-item');
+    var startIdx = -1;
+    var endIdx = -1;
+    
+    $items.each(function(idx) {
+        if ($(this).data('path') === lastClickItem.path) {
+            startIdx = idx;
+        }
+        if ($(this).data('path') === $targetItem.data('path')) {
+            endIdx = idx;
+        }
+    });
+    
+    if (startIdx !== -1 && endIdx !== -1) {
+        var min = Math.min(startIdx, endIdx);
+        var max = Math.max(startIdx, endIdx);
+        
+        clearSelection();
+        for (var i = min; i <= max; i++) {
+            var $item = $($items[i]);
+            var itemData = {
+                path: $item.data('path'),
+                isFolder: $item.data('folder') == 1,
+                filePath: $item.data('filepath'),
+                element: $item
+            };
+            addSelection(itemData);
+        }
+    }
+}
+
+// 切换选择状态
+function toggleSelection(itemData) {
+    var index = selectedItems.findIndex(item => item.path === itemData.path);
+    if (index > -1) {
+        removeSelection(itemData);
+    } else {
+        addSelection(itemData);
+    }
+}
+
+// 添加到选择
+function addSelection(itemData) {
+    selectedItems.push(itemData);
+    itemData.element.addClass('selected');
+    selectedItem = itemData;
+}
+
+// 从选择中移除
+function removeSelection(itemData) {
+    var index = selectedItems.findIndex(item => item.path === itemData.path);
+    if (index > -1) {
+        selectedItems.splice(index, 1);
+        itemData.element.removeClass('selected');
+    }
+    if (selectedItems.length > 0) {
+        selectedItem = selectedItems[0];
+    } else {
+        selectedItem = null;
+    }
+}
+
+// 清空选择
+function clearSelection() {
+    selectedItems.forEach(item => {
+        if (item.element) {
+            item.element.removeClass('selected');
+        }
+    });
+    selectedItems = [];
+    selectedItem = null;
+}
+
+// 全选
+function selectAll() {
+    clearSelection();
+    $('.fb-row, .fb-grid-item').each(function() {
+        var $item = $(this);
+        var itemData = {
+            path: $item.data('path'),
+            isFolder: $item.data('folder') == 1,
+            filePath: $item.data('filepath'),
+            element: $item
+        };
+        addSelection(itemData);
+    });
+    updateSelectionUI();
+}
+
+// 更新选择UI
+function updateSelectionUI() {
+    var count = selectedItems.length;
+    $('#selected-count').text(count > 0 ? '已选择 ' + count + ' 项' : '');
+    $('#btn-batch-download').prop('disabled', count === 0);
+}
+
+// 绑定点击事件
+$(document).on('click', '.fb-row, .fb-grid-item', function(e) {
+    handleItemClick(e, $(this));
+});
+
+// 打开文件夹按钮
+$(document).on('click', '.btn-open', function(e) {
+    e.stopPropagation();
+    var row = $(this).closest('.fb-row, .fb-grid-item');
+    navigateTo(row.data('path'));
+});
+
+// 版本历史按钮
+$(document).on('click', '.btn-versions', function(e) {
+    e.stopPropagation();
+    var row = $(this).closest('.fb-row, .fb-grid-item');
+    var fp = row.data('filepath');
+    if (fp) showVersions(fp);
+});
+
+// 面包屑点击
+$(document).on('click', '.bc-item:not(.active)', function() {
+    navigateTo($(this).data('path'));
+});
+
+// 全选按钮点击
+$('#btn-select-all').click(function() {
+    selectAll();
+});
+
+// 批量下载按钮点击
+$('#btn-batch-download').click(function() {
+    if (selectedItems.length === 0) return;
+    
+    var filePaths = [];
+    var folders = [];
+    
+    selectedItems.forEach(item => {
+        if (item.isFolder) {
+            folders.push(item.path);
+        } else if (item.filePath) {
+            filePaths.push(item.filePath);
+        }
+    });
+    
+    // 构建下载URL
+    var url = '/api/files/' + clientId + '/download';
+    var params = [];
+    
+    if (filePaths.length > 0) {
+        params.push('paths=' + encodeURIComponent(JSON.stringify(filePaths)));
+    }
+    
+    if (folders.length > 0) {
+        // 暂时只支持一个文件夹下载，多个文件夹可以后续扩展
+        params.push('folder=' + encodeURIComponent(folders[0]));
+    }
+    
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+        window.location.href = url;
+    }
+});
+
+// 右键菜单
+$(document).on('contextmenu', '.fb-row, .fb-grid-item', function(e) {
+    e.preventDefault();
+    var $el = $(this);
+    var isFolder = $el.data('folder') == 1;
+    ctxTarget = {
+        path: $el.data('path'),
+        isFolder: isFolder,
+        filePath: $el.data('filepath'),
+    };
+
+    // 显示/隐藏菜单项
+    var $menu = $('#fb-ctx-menu');
+    $menu.find('[data-action="open"]').toggle(isFolder);
+    $menu.find('[data-action="preview"]').toggle(!isFolder); // 文件显示预览
+    $menu.find('[data-action="download"]').show(); // 文件夹也显示下载选项
+    $menu.find('[data-action="versions"]').toggle(!isFolder);
+
+    $menu.css({left: e.clientX, top: e.clientY}).show();
+});
+$(document).on('click', function() { $('#fb-ctx-menu').hide(); });
+$('#fb-ctx-menu .ctx-item').click(function() {
+    if (!ctxTarget) return;
+    var action = $(this).data('action');
+    if (action === 'open' && ctxTarget.isFolder) {
+        navigateTo(ctxTarget.path);
+    } else if (action === 'preview' && ctxTarget.filePath) {
+        openPreview(ctxTarget.filePath);
+    } else if (action === 'download') {
+        if (ctxTarget.isFolder) {
+            // 文件夹下载
+            window.location.href = '/api/files/' + clientId + '/download?folder=' + encodeURIComponent(ctxTarget.path);
+        } else if (ctxTarget.filePath) {
+            // 文件下载
+            window.location.href = '/api/files/' + clientId + '/download?path=' + encodeURIComponent(ctxTarget.filePath);
+        }
+    } else if (action === 'versions' && ctxTarget.filePath) {
+        showVersions(ctxTarget.filePath);
+    } else if (action === 'copypath') {
+        var pathToCopy = ctxTarget.filePath || ctxTarget.path;
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(pathToCopy);
+            showToast('success', '已复制', '路径已复制到剪贴板');
+        }
+    }
+    $('#fb-ctx-menu').hide();
+});
+
+// 键盘快捷键
+$(document).on('keydown', function(e) {
+    if (!clientId) return;
+    if ($(e.target).is('input, select, textarea')) return;
+
+    if (e.key === 'Backspace') {
+        e.preventDefault();
+        navigateUp();
+    } else if (e.key === 'Enter' && selectedItem) {
+        if (selectedItem.isFolder) {
+            navigateTo(selectedItem.path);
+        } else if (selectedItem.filePath) {
+            showVersions(selectedItem.filePath);
+        }
+    } else if (e.key === 'F5') {
+        e.preventDefault();
+        if (clientId) loadClientFiles(clientId);
+    }
+});
+
+})();
+</script>
+{% endblock %}

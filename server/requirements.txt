@@ -1,0 +1,21 @@
+# 文件备份服务端依赖
+# Python 3.12.9
+
+# 数据库
+mysql-connector-python>=8.3.0
+
+# 网络通信
+asyncio>=3.4.3
+
+# 系统监控
+psutil>=5.9.0
+
+# 密码哈希
+bcrypt>=4.0.0
+
+# Web框架
+Flask>=2.3.0
+Werkzeug>=2.3.0
+
+# Windows服务（可选，Windows平台）
+pywin32>=306; platform_system == "Windows"

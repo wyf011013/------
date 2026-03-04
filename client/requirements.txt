@@ -1,0 +1,12 @@
+# 文件备份客户端依赖
+# Python 3.8+
+
+# 核心依赖
+watchdog>=3.0.0          # 文件监控
+psutil>=5.9.0            # 系统信息采集
+
+# Windows API（注册表、服务等）
+pywin32>=306; platform_system == "Windows"
+
+# EXE打包依赖（仅打包时需要）
+pyinstaller>=6.0         # EXE打包工具

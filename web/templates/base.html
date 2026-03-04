@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}文件备份系统{% endblock %}</title>
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/1.13.1/css/OverlayScrollbars.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css">
+
+    <style>
+        .gauge-container{text-align:center;margin-bottom:15px}
+        .gauge-label{font-size:13px;color:#6c757d;margin-top:5px}
+        .gauge-value{font-size:20px;font-weight:700}
+        .status-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+        .status-dot.online{background:#28a745}
+        .status-dot.offline{background:#dc3545}
+        .status-dot.backup-on{background:#007bff}
+        .modal-xl{max-width:900px}
+        .info-box .info-box-icon{width:70px;font-size:28px}
+        .nav-sidebar .nav-link{font-size:14px}
+        .file-tree .file-item{padding:3px 8px;cursor:pointer}
+        .file-tree .file-item:hover{background:#e9ecef}
+        .preloader{transition:opacity .3s}
+        .gauge-ring{position:relative;display:inline-block}
+        .gauge-ring canvas{transform:rotate(-90deg)}
+        .gauge-ring .gauge-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:16px;font-weight:700}
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="hold-transition sidebar-mini layout-fixed layout-navbar-fixed">
+<div class="wrapper">
+
+    <div class="preloader flex-column justify-content-center align-items-center">
+        <img class="animation__shake" src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/img/AdminLTELogo.png" alt="Logo" height="60" width="60">
+    </div>
+
+    <!-- Navbar -->
+    <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+        <ul class="navbar-nav">
+            <li class="nav-item"><a class="nav-link" data-widget="pushmenu" href="#"><i class="fas fa-bars"></i></a></li>
+            <li class="nav-item d-none d-sm-inline-block"><a href="{{ url_for('dashboard') }}" class="nav-link">首页</a></li>
+        </ul>
+        <ul class="navbar-nav ml-auto">
+            <li class="nav-item"><a class="nav-link" id="refresh-btn" href="#" title="刷新"><i class="fas fa-sync-alt"></i></a></li>
+            <li class="nav-item dropdown">
+                <a class="nav-link" data-toggle="dropdown" href="#"><i class="fas fa-user-circle"></i> {% if user %}{{ user.username }}{% endif %}</a>
+                <div class="dropdown-menu dropdown-menu-right">
+                    <span class="dropdown-header">用户菜单</span>
+                    <div class="dropdown-divider"></div>
+                    <a href="{{ url_for('settings') }}" class="dropdown-item"><i class="fas fa-cog mr-2"></i> 系统设置</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="{{ url_for('logout') }}" class="dropdown-item"><i class="fas fa-sign-out-alt mr-2"></i> 退出登录</a>
+                </div>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- Sidebar -->
+    <aside class="main-sidebar sidebar-dark-primary elevation-4">
+        <a href="{{ url_for('dashboard') }}" class="brand-link">
+            <img src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/img/AdminLTELogo.png" alt="Logo" class="brand-image img-circle elevation-3" style="opacity:.8">
+            <span class="brand-text font-weight-light">文件备份系统</span>
+        </a>
+        <div class="sidebar">
+            <div class="user-panel mt-3 pb-3 mb-3 d-flex">
+                <div class="image"><img src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/img/user2-160x160.jpg" class="img-circle elevation-2" alt="User"></div>
+                <div class="info"><a href="#" class="d-block">{% if user %}{{ user.username }}{% else %}未登录{% endif %}</a></div>
+            </div>
+            <nav class="mt-2">
+                <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+                    <li class="nav-item">
+                        <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                            <i class="nav-icon fas fa-tachometer-alt"></i><p>首页仪表盘</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('clients') }}" class="nav-link {% if request.endpoint == 'clients' %}active{% endif %}">
+                            <i class="nav-icon fas fa-desktop"></i><p>客户端管理</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('files') }}" class="nav-link {% if request.endpoint == 'files' %}active{% endif %}">
+                            <i class="nav-icon fas fa-folder-open"></i><p>文件管理</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('client_generator') }}" class="nav-link {% if request.endpoint == 'client_generator' %}active{% endif %}">
+                            <i class="nav-icon fas fa-download"></i><p>客户端生成</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('logs') }}" class="nav-link {% if request.endpoint == 'logs' %}active{% endif %}">
+                            <i class="nav-icon fas fa-history"></i><p>系统日志</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{{ url_for('settings') }}" class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}">
+                            <i class="nav-icon fas fa-cogs"></i><p>系统设置</p>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </aside>
+
+    <!-- Content -->
+    <div class="content-wrapper">
+        <div class="content-header">
+            <div class="container-fluid">
+                <div class="row mb-2">
+                    <div class="col-sm-6"><h1 class="m-0">{% block page_title %}仪表盘{% endblock %}</h1></div>
+                    <div class="col-sm-6">
+                        <ol class="breadcrumb float-sm-right">
+                            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">首页</a></li>
+                            <li class="breadcrumb-item active">{% block breadcrumb %}仪表盘{% endblock %}</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <section class="content"><div class="container-fluid">{% block content %}{% endblock %}</div></section>
+    </div>
+
+    <footer class="main-footer">
+        <strong>Copyright &copy; 2026 文件备份系统</strong> All rights reserved.
+        <div class="float-right d-none d-sm-inline-block"><b>Version</b> 1.0.0</div>
+    </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/1.13.1/js/jquery.overlayScrollbars.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+
+<script>
+function formatFileSize(b){if(b===0)return'0 B';var s=['B','KB','MB','GB','TB'],i=Math.floor(Math.log(b)/Math.log(1024));return(b/Math.pow(1024,i)).toFixed(2)+' '+s[i]}
+function formatDate(d){if(!d)return'-';var t=new Date(d);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0')+' '+String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0')}
+function timeAgo(d){if(!d)return'-';var s=Math.floor((new Date()-new Date(d))/1000);if(s<60)return s+'秒前';if(s<3600)return Math.floor(s/60)+'分钟前';if(s<86400)return Math.floor(s/3600)+'小时前';return Math.floor(s/86400)+'天前'}
+function showToast(t,title,msg){$(document).Toasts('create',{class:'bg-'+t,title:title,body:msg,autohide:true,delay:3000})}
+function drawGauge(canvasId,pct,color){var c=document.getElementById(canvasId);if(!c)return;var ctx=c.getContext('2d'),s=c.width,r=s/2-8,cx=s/2,cy=s/2;var startAngle=-Math.PI/2;ctx.clearRect(0,0,s,s);ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.strokeStyle='#e9ecef';ctx.lineWidth=10;ctx.stroke();if(pct>0){ctx.beginPath();ctx.arc(cx,cy,r,startAngle,startAngle+2*Math.PI*Math.max(pct,1)/100);ctx.strokeStyle=color;ctx.lineWidth=10;ctx.lineCap='round';ctx.stroke()}}
+$('#refresh-btn').click(function(e){e.preventDefault();location.reload()});
+</script>
+
+{% block extra_js %}{% endblock %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<script>
+$(function(){
+{% for category, message in messages %}
+showToast('{{ "success" if category == "success" else ("danger" if category == "error" else "info") }}','{{ "成功" if category == "success" else ("错误" if category == "error" else "提示") }}','{{ message }}');
+{% endfor %}
+});
+</script>
+{% endif %}
+{% endwith %}
+</body>
+</html>

@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}客户端生成 - 文件备份系统{% endblock %}
+{% block page_title %}客户端生成{% endblock %}
+{% block breadcrumb %}客户端生成{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6">
+        <div class="card card-outline card-primary">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-download mr-1"></i> 生成客户端</h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">配置服务器连接信息，生成客户端安装包供目标机器部署。</p>
+                <form id="generateForm">
+                    <div class="form-group">
+                        <label><i class="fas fa-server mr-1"></i> 服务器地址</label>
+                        <input type="text" class="form-control" id="server-host" value="{{ default_host }}" placeholder="服务器IP地址" required>
+                        <small class="text-muted">客户端将连接此地址。若使用LAN自动发现则可留空。</small>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-plug mr-1"></i> 服务器端口</label>
+                        <input type="number" class="form-control" id="server-port" value="{{ default_port }}" min="1" max="65535" required>
+                    </div>
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="enable-discovery" checked>
+                            <label class="custom-control-label" for="enable-discovery">启用局域网自动发现 (UDP广播)</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="enable-autostart" checked>
+                            <label class="custom-control-label" for="enable-autostart">开机自启动</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="enable-hidden" checked>
+                            <label class="custom-control-label" for="enable-hidden">隐藏运行 (无窗口)</label>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-success btn-block mb-2" id="btn-generate-exe">
+                        <i class="fas fa-cube mr-1"></i> 下载EXE安装包 (推荐)
+                    </button>
+                    <button type="submit" class="btn btn-outline-secondary btn-block" id="btn-generate-src">
+                        <i class="fas fa-file-archive mr-1"></i> 下载源码安装包
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <!-- EXE模板管理 -->
+        <div class="card card-outline card-warning">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-upload mr-1"></i> EXE模板管理</h3>
+            </div>
+            <div class="card-body">
+                <div class="callout callout-warning">
+                    <h6>使用说明</h6>
+                    <p class="mb-0">
+                        在任意有Python环境的Windows机器上，运行客户端目录中的 <code>build_exe.py</code> 打包为EXE，
+                        然后将 <code>FileBackupClient.exe</code> 上传到此处。之后即可一键生成含配置的EXE安装包。
+                    </p>
+                </div>
+                <div id="exe-status" class="mb-3">
+                    <span class="text-muted"><i class="fas fa-spinner fa-spin mr-1"></i> 检查EXE模板状态...</span>
+                </div>
+                <form id="uploadExeForm" enctype="multipart/form-data">
+                    <div class="input-group">
+                        <div class="custom-file">
+                            <input type="file" class="custom-file-input" id="exe-file" accept=".exe">
+                            <label class="custom-file-label" for="exe-file">选择 FileBackupClient.exe</label>
+                        </div>
+                        <div class="input-group-append">
+                            <button type="submit" class="btn btn-warning" id="btn-upload-exe">
+                                <i class="fas fa-upload mr-1"></i> 上传
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- EXE部署说明 -->
+        <div class="card card-outline card-success">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-cube mr-1"></i> EXE部署步骤</h3>
+            </div>
+            <div class="card-body">
+                <ol class="pl-3 mb-0">
+                    <li>点击左侧 <strong>"下载EXE安装包"</strong> 获取zip</li>
+                    <li>解压到目标Windows机器任意目录</li>
+                    <li>双击 <code>FileBackupClient.exe</code> 即可运行</li>
+                </ol>
+                <hr>
+                <h6><strong>EXE特性</strong></h6>
+                <ul class="pl-3 mb-0">
+                    <li>单文件独立运行，无需安装Python</li>
+                    <li>后台静默运行，无控制台窗口</li>
+                    <li>自动注册开机自启动</li>
+                    <li>config.ini 放在EXE同目录即可</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 源码部署说明 -->
+        <div class="card card-outline card-info collapsed-card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-code mr-1"></i> Python源码部署 (备选)</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <h6><strong>Windows</strong></h6>
+                <ol class="pl-3">
+                    <li>解压安装包到目标机器</li>
+                    <li>双击 <code>install.bat</code> 运行</li>
+                </ol>
+                <h6 class="mt-2"><strong>Linux</strong></h6>
+                <ol class="pl-3">
+                    <li>解压: <code>unzip file_backup_client.zip</code></li>
+                    <li>运行: <code>bash install.sh</code></li>
+                </ol>
+                <hr>
+                <p class="text-muted small mb-0">系统要求: Python 3.8+, 依赖: watchdog, psutil</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 检查EXE模板状态
+function checkExeStatus() {
+    $.getJSON('/api/check-client-exe', function(res) {
+        if (res.exists) {
+            var sizeKB = Math.round(res.file_size / 1024);
+            var sizeMB = (res.file_size / 1024 / 1024).toFixed(1);
+            var sizeStr = sizeKB > 1024 ? sizeMB + ' MB' : sizeKB + ' KB';
+            $('#exe-status').html(
+                '<span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i> EXE模板已就绪</span> ' +
+                '<small class="text-muted">(' + sizeStr + ')</small>'
+            );
+            $('#btn-generate-exe').prop('disabled', false).removeClass('btn-secondary').addClass('btn-success');
+        } else {
+            $('#exe-status').html(
+                '<span class="badge badge-danger"><i class="fas fa-times-circle mr-1"></i> 尚未上传EXE模板</span> ' +
+                '<small class="text-muted">请先上传预编译的EXE</small>'
+            );
+            $('#btn-generate-exe').prop('disabled', true).removeClass('btn-success').addClass('btn-secondary');
+        }
+    });
+}
+checkExeStatus();
+
+// 文件选择显示文件名
+$('#exe-file').on('change', function() {
+    var fileName = $(this).val().split('\\').pop();
+    $(this).next('.custom-file-label').html(fileName || '选择 FileBackupClient.exe');
+});
+
+// 上传EXE模板
+$('#uploadExeForm').submit(function(e) {
+    e.preventDefault();
+    var fileInput = document.getElementById('exe-file');
+    if (!fileInput.files.length) {
+        if (typeof showToast === 'function') showToast('warning', '提示', '请选择EXE文件');
+        return;
+    }
+    var formData = new FormData();
+    formData.append('exe_file', fileInput.files[0]);
+
+    var btn = $('#btn-upload-exe');
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> 上传中...');
+
+    $.ajax({
+        url: '/api/upload-client-exe',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(res) {
+            if (res.success) {
+                if (typeof showToast === 'function') showToast('success', '成功', res.message);
+                checkExeStatus();
+            } else {
+                if (typeof showToast === 'function') showToast('error', '失败', res.message);
+            }
+        },
+        error: function() {
+            if (typeof showToast === 'function') showToast('error', '错误', '上传失败');
+        },
+        complete: function() {
+            btn.prop('disabled', false).html('<i class="fas fa-upload mr-1"></i> 上传');
+        }
+    });
+});
+
+// 下载EXE安装包
+$('#btn-generate-exe').click(function() {
+    var host = $('#server-host').val().trim();
+    var port = $('#server-port').val();
+    if (!host) {
+        if (typeof showToast === 'function') showToast('warning', '提示', '请输入服务器地址');
+        return;
+    }
+
+    var btn = $(this);
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> 生成中...');
+
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/api/generate-client-exe';
+    var fields = { 'server_host': host, 'server_port': port };
+    for (var key in fields) {
+        var input = document.createElement('input');
+        input.type = 'hidden'; input.name = key; input.value = fields[key];
+        form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    setTimeout(function() {
+        btn.prop('disabled', false).html('<i class="fas fa-cube mr-1"></i> 下载EXE安装包 (推荐)');
+        checkExeStatus();
+    }, 3000);
+});
+
+// 下载源码安装包
+$('#generateForm').submit(function(e) {
+    e.preventDefault();
+    var host = $('#server-host').val().trim();
+    var port = $('#server-port').val();
+    if (!host) {
+        if (typeof showToast === 'function') showToast('warning', '提示', '请输入服务器地址');
+        return;
+    }
+
+    var btn = $('#btn-generate-src');
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> 生成中...');
+
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/api/generate-client';
+    var fields = { 'server_host': host, 'server_port': port };
+    for (var key in fields) {
+        var input = document.createElement('input');
+        input.type = 'hidden'; input.name = key; input.value = fields[key];
+        form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+
+    setTimeout(function() {
+        btn.prop('disabled', false).html('<i class="fas fa-file-archive mr-1"></i> 下载源码安装包');
+    }, 3000);
+});
+</script>
+{% endblock %}

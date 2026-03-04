@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}系统日志 - 文件备份系统{% endblock %}
+{% block page_title %}系统日志{% endblock %}
+{% block breadcrumb %}系统日志{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card card-outline card-secondary">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-list-alt mr-1"></i> 操作日志</h3>
+                <div class="card-tools">
+                    <div class="input-group input-group-sm" style="width:200px">
+                        <select class="form-control" id="log-level-filter">
+                            <option value="">全部级别</option>
+                            <option value="info">信息</option>
+                            <option value="warning">警告</option>
+                            <option value="error">错误</option>
+                        </select>
+                        <div class="input-group-append">
+                            <button class="btn btn-default" onclick="loadLogs()"><i class="fas fa-search"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th style="width:160px">时间</th>
+                            <th style="width:80px">级别</th>
+                            <th>内容</th>
+                            <th style="width:120px">来源</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-tbody">
+                        <tr><td colspan="4" class="text-center py-3">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer text-center">
+                <button class="btn btn-sm btn-outline-secondary" id="btn-load-more" onclick="loadMore()">加载更多</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var logOffset = 0;
+var logLimit = 50;
+
+function loadLogs(append) {
+    if (!append) { logOffset = 0; }
+    var level = $('#log-level-filter').val();
+    var url = '/api/logs?limit=' + logLimit + '&offset=' + logOffset;
+    if (level) url += '&level=' + level;
+
+    $.getJSON(url, function(res) {
+        if (!res.success) return;
+        var logs = res.data || [];
+        var html = '';
+        if (logs.length === 0 && !append) {
+            html = '<tr><td colspan="4" class="text-center text-muted py-3">暂无日志</td></tr>';
+        }
+        logs.forEach(function(log) {
+            var levelBadge = 'secondary';
+            var levelText = log.level || 'info';
+            if (levelText === 'error') levelBadge = 'danger';
+            else if (levelText === 'warning') levelBadge = 'warning';
+            else if (levelText === 'info') levelBadge = 'info';
+
+            html += '<tr>' +
+                '<td>' + formatDate(log.created_at) + '</td>' +
+                '<td><span class="badge badge-' + levelBadge + '">' + levelText + '</span></td>' +
+                '<td>' + (log.message || '') + '</td>' +
+                '<td>' + (log.source || '-') + '</td>' +
+            '</tr>';
+        });
+        if (append) {
+            $('#logs-tbody').append(html);
+        } else {
+            $('#logs-tbody').html(html);
+        }
+        logOffset += logs.length;
+        $('#btn-load-more').toggle(logs.length >= logLimit);
+    });
+}
+
+function loadMore() {
+    loadLogs(true);
+}
+
+$(function() {
+    loadLogs();
+    setInterval(function() { loadLogs(); }, 30000);
+});
+</script>
+{% endblock %}

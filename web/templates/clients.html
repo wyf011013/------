@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+
+{% block title %}客户端管理 - 文件备份系统{% endblock %}
+{% block page_title %}客户端管理{% endblock %}
+{% block breadcrumb %}客户端管理{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card card-outline card-primary">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-desktop mr-1"></i> 客户端列表</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="refreshClients()">
+                        <i class="fas fa-sync-alt"></i> 刷新
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <table id="clientsTable" class="table table-bordered table-hover table-sm">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>备注</th>
+                            <th>协议</th>
+                            <th>IP地址</th>
+                            <th>用户</th>
+                            <th>计算机名</th>
+                            <th>系统</th>
+                            <th>进程名</th>
+                            <th>状态</th>
+                            <th>备份进度</th>
+                            <th>磁盘占用</th>
+                            <th>心跳</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clients-tbody">
+                        <tr><td colspan="13" class="text-center text-muted py-3">加载中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 备份设置模态框 -->
+<div class="modal fade" id="backupSettingsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary">
+                <h5 class="modal-title"><i class="fas fa-cog mr-1"></i> 备份设置 - <span id="modal-client-name"></span></h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cfg-client-id">
+                <div class="row">
+                    <div class="col-md-6">
+                        <!-- 文件树选择 -->
+                        <div class="card card-outline card-info">
+                            <div class="card-header py-2">
+                                <h6 class="card-title"><i class="fas fa-folder-tree mr-1"></i> 备份路径选择</h6>
+                            </div>
+                            <div class="card-body p-2" style="max-height:250px;overflow-y:auto">
+                                <div id="file-tree-container">
+                                    <div class="text-center text-muted py-3">
+                                        <i class="fas fa-spinner fa-spin"></i> 正在加载文件树...
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer py-2">
+                                <div class="form-group mb-0">
+                                    <label class="mb-1">已选路径</label>
+                                    <textarea class="form-control form-control-sm" id="cfg-backup-paths" rows="3" placeholder="每行一个路径"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <!-- 备份参数 -->
+                        <div class="card card-outline card-success">
+                            <div class="card-header py-2">
+                                <h6 class="card-title"><i class="fas fa-sliders-h mr-1"></i> 备份参数</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group row mb-2">
+                                    <label class="col-sm-5 col-form-label col-form-label-sm">压缩传输</label>
+                                    <div class="col-sm-7">
+                                        <div class="custom-control custom-switch mt-1">
+                                            <input type="checkbox" class="custom-control-input" id="cfg-compression" checked>
+                                            <label class="custom-control-label" for="cfg-compression">启用</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group row mb-2">
+                                    <label class="col-sm-5 col-form-label col-form-label-sm">增量备份</label>
+                                    <div class="col-sm-7">
+                                        <div class="custom-control custom-switch mt-1">
+                                            <input type="checkbox" class="custom-control-input" id="cfg-incremental" checked>
+                                            <label class="custom-control-label" for="cfg-incremental">启用</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group row mb-2">
+                                    <label class="col-sm-5 col-form-label col-form-label-sm">最大版本数</label>
+                                    <div class="col-sm-7">
+                                        <input type="number" class="form-control form-control-sm" id="cfg-max-versions" value="10" min="1" max="100">
+                                    </div>
+                                </div>
+                                <div class="form-group row mb-2">
+                                    <label class="col-sm-5 col-form-label col-form-label-sm">带宽限制(KB/s)</label>
+                                    <div class="col-sm-7">
+                                        <input type="number" class="form-control form-control-sm" id="cfg-bandwidth" value="0" min="0">
+                                        <small class="text-muted">0 = 不限速</small>
+                                    </div>
+                                </div>
+                                <div class="form-group row mb-2">
+                                    <label class="col-sm-5 col-form-label col-form-label-sm">容量限制(MB)</label>
+                                    <div class="col-sm-7">
+                                        <input type="number" class="form-control form-control-sm" id="cfg-capacity" value="0" min="0">
+                                        <small class="text-muted">0 = 不限制</small>
+                                    </div>
+                                </div>
+                                <div class="form-group mb-0">
+                                    <label class="mb-1">排除模式</label>
+                                    <textarea class="form-control form-control-sm" id="cfg-exclude" rows="2" placeholder="每行一个，如 *.tmp">*.tmp
+*.log
+*.cache</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveBackupConfig()">
+                    <i class="fas fa-save mr-1"></i> 保存配置
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 远程命令模态框 -->
+<div class="modal fade" id="remoteCommandModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title"><i class="fas fa-terminal mr-1"></i> 远程命令 - <span id="cmd-client-name"></span></h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cmd-client-id">
+                <div class="form-group">
+                    <label>输入命令</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="cmd-input" placeholder="例如: dir C:\Users">
+                        <div class="input-group-append">
+                            <button class="btn btn-warning" onclick="executeCommand()">
+                                <i class="fas fa-play mr-1"></i> 执行
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>执行结果</label>
+                    <pre id="cmd-output" class="bg-dark text-light p-3" style="min-height:200px;max-height:400px;overflow-y:auto;font-size:13px">等待执行...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle mr-1"></i> 确认删除</h5>
+                <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="del-client-id">
+                <p>确定要删除客户端 <strong id="del-client-name"></strong> 吗?</p>
+                <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" id="del-remove-files">
+                    <label class="custom-control-label text-danger" for="del-remove-files">同时删除客户端上的备份文件</label>
+                </div>
+                <div class="alert alert-warning mt-3 mb-0">
+                    <i class="fas fa-exclamation-circle mr-1"></i> 此操作将删除该客户端的所有备份数据，且不可恢复!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                    <i class="fas fa-trash mr-1"></i> 确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var clientsData = [];
+
+function refreshClients() {
+    $.getJSON('/api/clients', function(res) {
+        if (!res.success) { showToast('danger', '错误', '获取客户端列表失败'); return; }
+        clientsData = res.data;
+        renderClientsTable(res.data);
+    }).fail(function() { showToast('danger', '错误', '网络请求失败'); });
+}
+
+function renderClientsTable(clients) {
+    if (clients.length === 0) {
+        $('#clients-tbody').html('<tr><td colspan="13" class="text-center text-muted py-3">暂无客户端</td></tr>');
+        return;
+    }
+    var html = '';
+    clients.forEach(function(c) {
+        var statusClass = c.status === 'online' ? 'success' : 'danger';
+        var statusText = c.status === 'online' ? '在线' : '离线';
+        var stats = c.backup_stats || {};
+        var diskInfo = stats.total_size ? formatFileSize(stats.total_size) : '-';
+        var heartbeat = c.last_heartbeat ? timeAgo(c.last_heartbeat) : (c.last_seen ? timeAgo(c.last_seen) : '从未');
+
+        // 备份状态：backup_enabled可能为1/0/true/false/null
+        var backupOn = (c.backup_enabled === true || c.backup_enabled === 1 || c.backup_enabled === '1');
+        var backupBtnClass = backupOn ? 'success' : 'secondary';
+        var backupBtnIcon = backupOn ? 'fa-cloud-upload-alt' : 'fa-ban';
+        var backupBtnTitle = backupOn ? '点击禁用备份' : '点击启用备份';
+        var backupToggleVal = backupOn ? 'false' : 'true';
+
+        // 备份进度
+        var progressHtml = '<span class="text-muted">-</span>';
+        if (c.backup_progress) {
+            var bp = c.backup_progress;
+            var pct = bp.percent || 0;
+            var label = bp.type === 'batch'
+                ? (bp.total_files || 0) + '个文件'
+                : (bp.current_file || '');
+            progressHtml = '<div class="progress progress-xs mb-1" style="min-width:60px">' +
+                '<div class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width:' + pct + '%"></div>' +
+                '</div><small class="text-muted">' + label + ' ' + pct + '%</small>';
+        }
+
+        html += '<tr>' +
+            '<td>' + c.id + '</td>' +
+            '<td><span class="editable-remark" data-id="' + c.id + '" title="点击编辑">' + (c.remark || '<em class="text-muted">点击设置</em>') + '</span></td>' +
+            '<td>' + (c.protocol_type || 'TCP') + '</td>' +
+            '<td>' + (c.ip_address || '-') + '</td>' +
+            '<td>' + (c.os_user || '-') + '</td>' +
+            '<td>' + (c.computer_name || '-') + '</td>' +
+            '<td>' + (c.os_type || '-') + '</td>' +
+            '<td>' + (c.process_name || '-') + '</td>' +
+            '<td><span class="badge badge-' + statusClass + '">' + statusText + '</span></td>' +
+            '<td>' + progressHtml + '</td>' +
+            '<td>' + diskInfo + '</td>' +
+            '<td>' + heartbeat + '</td>' +
+            '<td class="text-nowrap">' +
+                '<div class="btn-group btn-group-sm">' +
+                    '<button class="btn btn-' + backupBtnClass + '" onclick="toggleBackup(' + c.id + ',' + backupToggleVal + ')" title="' + backupBtnTitle + '">' +
+                        '<i class="fas ' + backupBtnIcon + '"></i>' +
+                    '</button>' +
+                    '<button class="btn btn-primary" onclick="openBackupSettings(' + c.id + ',\'' + (c.computer_name || '').replace(/'/g, "\\'") + '\')" title="备份设置">' +
+                        '<i class="fas fa-cog"></i>' +
+                    '</button>' +
+                    '<button class="btn btn-warning" onclick="openRemoteCommand(' + c.id + ',\'' + (c.computer_name || '').replace(/'/g, "\\'") + '\')" title="远程命令">' +
+                        '<i class="fas fa-terminal"></i>' +
+                    '</button>' +
+                    '<a class="btn btn-info" href="/client/' + c.id + '#client-logs" title="查看日志">' +
+                        '<i class="fas fa-file-alt"></i>' +
+                    '</a>' +
+                    '<button class="btn btn-danger" onclick="showDeleteConfirm(' + c.id + ',\'' + (c.computer_name || '').replace(/'/g, "\\'") + '\')" title="删除">' +
+                        '<i class="fas fa-trash"></i>' +
+                    '</button>' +
+                '</div>' +
+            '</td>' +
+        '</tr>';
+    });
+    $('#clients-tbody').html(html);
+
+    // 绑定备注编辑
+    $('.editable-remark').click(function() {
+        var id = $(this).data('id');
+        var current = $(this).text().trim();
+        if (current === '点击设置') current = '';
+        var newRemark = prompt('设置备注:', current);
+        if (newRemark !== null) {
+            $.ajax({
+                url: '/api/client/' + id + '/remark',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({remark: newRemark}),
+                success: function(res) {
+                    if (res.success) { refreshClients(); showToast('success','成功','备注已更新'); }
+                    else showToast('danger','错误', res.message);
+                }
+            });
+        }
+    });
+}
+
+function toggleBackup(clientId, enable) {
+    var action = enable ? 'start' : 'stop';
+    var actionText = enable ? '启用' : '禁用';
+    $.ajax({
+        url: '/api/client/' + clientId + '/backup-control',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({action: action}),
+        success: function(res) {
+            if (res.success) {
+                showToast('success', '成功', '已' + actionText + '备份');
+            } else {
+                showToast('danger', '错误', res.message);
+            }
+            refreshClients();
+        },
+        error: function() { showToast('danger', '错误', actionText + '备份失败'); }
+    });
+}
+
+function openBackupSettings(clientId, clientName) {
+    $('#cfg-client-id').val(clientId);
+    $('#modal-client-name').text(clientName);
+
+    // 加载现有配置
+    $.getJSON('/api/client/' + clientId + '/config', function(res) {
+        if (res.success && res.data) {
+            var d = res.data;
+            var paths = d.backup_paths;
+            if (Array.isArray(paths)) paths = paths.join('\n');
+            else if (typeof paths === 'string' && paths.startsWith('[')) {
+                try { paths = JSON.parse(paths).join('\n'); } catch(e) {}
+            }
+            $('#cfg-backup-paths').val(paths || '');
+            $('#cfg-compression').prop('checked', d.enable_compression !== false);
+            $('#cfg-incremental').prop('checked', d.incremental_only !== false);
+            $('#cfg-max-versions').val(d.max_versions || 10);
+            $('#cfg-bandwidth').val(d.bandwidth_limit_kbps || 0);
+            $('#cfg-capacity').val(d.max_capacity_mb || 0);
+            var excl = d.exclude_patterns;
+            if (Array.isArray(excl)) excl = excl.join('\n');
+            $('#cfg-exclude').val(excl || '');
+        }
+    });
+
+    // 加载文件树
+    loadFileTree(clientId, '');
+
+    $('#backupSettingsModal').modal('show');
+}
+
+function loadFileTree(clientId, path) {
+    $('#file-tree-container').html('<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> 正在加载...</div>');
+    $.getJSON('/api/client/' + clientId + '/file-tree?path=' + encodeURIComponent(path), function(res) {
+        if (res.success && res.data && res.data.entries) {
+            var entries = res.data.entries;
+            if (entries.length === 0) {
+                $('#file-tree-container').html('<div class="text-muted py-2 px-2">目录为空或客户端离线</div>');
+                return;
+            }
+            var html = '<div class="file-tree">';
+            if (path) {
+                html += '<div class="file-item" onclick="loadFileTree(' + clientId + ',\'' + getParentPath(path) + '\')"><i class="fas fa-arrow-left text-muted mr-1"></i> ..</div>';
+            }
+            entries.forEach(function(e) {
+                var icon = e.is_dir ? 'fa-folder text-warning' : 'fa-file text-muted';
+                var clickAction = e.is_dir ? 'loadFileTree(' + clientId + ',\'' + e.path.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')' : '';
+                var addAction = 'addBackupPath(\'' + e.path.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')';
+                html += '<div class="file-item d-flex justify-content-between align-items-center">' +
+                    '<span' + (e.is_dir ? ' onclick="' + clickAction + '" style="cursor:pointer"' : '') + '><i class="fas ' + icon + ' mr-1"></i> ' + e.name + '</span>' +
+                    (e.is_dir ? '<button class="btn btn-xs btn-outline-success" onclick="' + addAction + '"><i class="fas fa-plus"></i></button>' : '') +
+                '</div>';
+            });
+            html += '</div>';
+            $('#file-tree-container').html(html);
+        } else {
+            $('#file-tree-container').html('<div class="text-muted py-2 px-2">无法获取文件树（客户端可能离线）</div>');
+        }
+    }).fail(function() {
+        $('#file-tree-container').html('<div class="text-muted py-2 px-2">请求失败</div>');
+    });
+}
+
+function getParentPath(path) {
+    var parts = path.replace(/\\/g, '/').split('/');
+    parts.pop();
+    return parts.join('/') || '';
+}
+
+function addBackupPath(path) {
+    var current = $('#cfg-backup-paths').val().trim();
+    var paths = current ? current.split('\n') : [];
+    if (paths.indexOf(path) === -1) {
+        paths.push(path);
+        $('#cfg-backup-paths').val(paths.join('\n'));
+    }
+}
+
+function saveBackupConfig() {
+    var clientId = $('#cfg-client-id').val();
+    var pathsText = $('#cfg-backup-paths').val().trim();
+    var paths = pathsText ? pathsText.split('\n').map(function(p){return p.trim()}).filter(Boolean) : [];
+    var exclText = $('#cfg-exclude').val().trim();
+    var excl = exclText ? exclText.split('\n').map(function(p){return p.trim()}).filter(Boolean) : [];
+
+    var data = {
+        backup_paths: paths,
+        exclude_patterns: excl,
+        enable_compression: $('#cfg-compression').is(':checked'),
+        incremental_only: $('#cfg-incremental').is(':checked'),
+        max_versions: parseInt($('#cfg-max-versions').val()) || 10,
+        bandwidth_limit_kbps: parseInt($('#cfg-bandwidth').val()) || 0,
+        max_capacity_mb: parseInt($('#cfg-capacity').val()) || 0
+    };
+
+    $.ajax({
+        url: '/api/client/' + clientId + '/config',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(res) {
+            if (res.success) {
+                showToast('success', '成功', '备份配置已保存');
+                $('#backupSettingsModal').modal('hide');
+            } else {
+                showToast('danger', '错误', res.message);
+            }
+        },
+        error: function() { showToast('danger', '错误', '保存失败'); }
+    });
+}
+
+function openRemoteCommand(clientId, clientName) {
+    $('#cmd-client-id').val(clientId);
+    $('#cmd-client-name').text(clientName);
+    $('#cmd-input').val('');
+    $('#cmd-output').text('等待执行...');
+    $('#remoteCommandModal').modal('show');
+}
+
+function executeCommand() {
+    var clientId = $('#cmd-client-id').val();
+    var command = $('#cmd-input').val().trim();
+    if (!command) { showToast('warning', '提示', '请输入命令'); return; }
+
+    $('#cmd-output').text('正在执行...');
+
+    $.ajax({
+        url: '/api/client/' + clientId + '/command',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({command: command}),
+        success: function(res) {
+            if (res.success && res.command_id) {
+                pollCommandResult(clientId, res.command_id, 0);
+            } else {
+                $('#cmd-output').text('发送失败: ' + (res.message || '未知错误'));
+            }
+        },
+        error: function() { $('#cmd-output').text('请求失败'); }
+    });
+}
+
+function pollCommandResult(clientId, commandId, attempt) {
+    if (attempt > 20) {
+        $('#cmd-output').text('命令执行超时');
+        return;
+    }
+    setTimeout(function() {
+        $.getJSON('/api/client/' + clientId + '/command/' + commandId + '/result', function(res) {
+            if (res.success && res.data) {
+                if (res.data.status === 'completed') {
+                    var d = res.data;
+                    var output = '';
+                    if (d.stdout) output += d.stdout;
+                    if (d.stderr) output += '\n[STDERR]\n' + d.stderr;
+                    if (d.return_code !== undefined) output += '\n\n[返回码: ' + d.return_code + ']';
+                    $('#cmd-output').text(output || '(无输出)');
+                } else {
+                    pollCommandResult(clientId, commandId, attempt + 1);
+                }
+            } else {
+                pollCommandResult(clientId, commandId, attempt + 1);
+            }
+        }).fail(function() {
+            pollCommandResult(clientId, commandId, attempt + 1);
+        });
+    }, 500);
+}
+
+function showDeleteConfirm(clientId, clientName) {
+    $('#del-client-id').val(clientId);
+    $('#del-client-name').text(clientName);
+    $('#del-remove-files').prop('checked', false);
+    $('#deleteConfirmModal').modal('show');
+}
+
+function confirmDelete() {
+    var clientId = $('#del-client-id').val();
+    $.ajax({
+        url: '/api/client/' + clientId,
+        method: 'DELETE',
+        success: function(res) {
+            $('#deleteConfirmModal').modal('hide');
+            if (res.success) {
+                showToast('success', '成功', '客户端已删除');
+                refreshClients();
+            } else {
+                showToast('danger', '错误', res.message);
+            }
+        },
+        error: function() { showToast('danger', '错误', '删除失败'); }
+    });
+}
+
+$(function() {
+    refreshClients();
+    setInterval(refreshClients, 5000);
+});
+</script>
+{% endblock %}
